@@ -4,6 +4,10 @@
 #define internal static
 #define TOLERANCE 0.00001f
 
+// Rays tavel in
+#define MAXIMUM_RAY_TIME 5.0f
+#define MINIMUM_RAY_TIME 0.0f
+
 // [ cfarvin::TODO ] [ cfarvin::REMOVE ]
 #include <math.h>
 
@@ -52,12 +56,46 @@ typedef struct
 #pragma pack(pop)
 
 
+typedef union
+{
+    // Little Endian Storage
+    struct
+    {
+        u8 A;
+        u8 R;
+        u8 G;
+        u8 B;
+    } MSB_channel;
+
+    // Big Endian Storage
+    struct
+    {
+        u8 B;
+        u8 G;
+        u8 R;
+        u8 A;
+    } LSB_channel;
+
+    u32 value;
+} Color;
+
+
 typedef struct
 {
     r32 x;
     r32 y;
     r32 z;
 } v3;
+
+
+internal inline void
+v3Set(v3* const result, r32 x, r32 y, r32 z)
+{
+    assert(result);
+    result->x = x;
+    result->y = y;
+    result->z = z;
+}
 
 
 /* typedef struct */
@@ -75,7 +113,8 @@ typedef struct
 
 typedef struct
 {
-    u32 color;
+    Color color;
+    // [ cfarvin::TODO ] add scattering attributes
 } Material;
 
 
@@ -87,12 +126,57 @@ typedef struct
 } Sphere;
 
 
-typedef struct
+internal Sphere
+CreateSphere(v3* const position,
+             r32 radius,
+             Material* const material,
+             size_t* const sphere_count_to_update)
 {
-    v3       position;
-    r32      length;
-    Material material;
-} Cube;
+    Sphere sphere = {0};
+    sphere.position = *position;
+    sphere.radius = radius;
+    sphere.material = *material;
+
+    if (sphere_count_to_update)
+    {
+        (*sphere_count_to_update)++;
+    }
+
+    return sphere;
+}
+
+
+internal Sphere
+CreateSphereRaw(r32 xpos,
+                r32 ypos,
+                r32 zpos,
+                r32 radius,
+                u32 color,
+                size_t* const sphere_count_to_update)
+{
+    Sphere sphere = {0};
+    sphere.position.x = xpos;
+    sphere.position.y = ypos;
+    sphere.position.z = zpos;
+    sphere.radius = radius;
+    sphere.material.color.value = color;
+
+    if (sphere_count_to_update)
+    {
+        (*sphere_count_to_update)++;
+    }
+
+    return sphere;
+}
+
+
+
+/* typedef struct */
+/* { */
+/*     v3       position; */
+/*     r32      length; */
+/*     Material material; */
+/* } Cube; */
 
 
 //
@@ -136,16 +220,6 @@ v3IsNorm(v3* const a)
 
 
 internal inline void
-v3Set(v3* const result, r32 x, r32 y, r32 z)
-{
-    assert(result);
-    result->x = x;
-    result->y = y;
-    result->z = z;
-}
-
-
-internal inline void
 v3Norm(v3* const a)
 {
     assert(a);
@@ -172,14 +246,6 @@ v3SetAndNorm(v3* const result, r32 x, r32 y, r32 z)
     result->y = y;
     result->z = z;
     v3Norm(result);
-}
-
-
-internal inline void
-v3Copy(v3* const src, v3* const dest)
-{
-    assert(src && dest);
-    v3Set(dest, src->x, src->y, src->z);
 }
 
 
@@ -274,11 +340,18 @@ DoesIntersectSphere(Ray* const ray,
         ret = true;
     }
 
-    if(_t_)
+    if(_t_ && ret)
     {
-        r32 root_a = ((b * -1.0f) - (r32)sqrt(discriminant)) / (2.0f * a);
-        r32 root_b = ((b * -1.0f) + (r32)sqrt(discriminant)) / (2.0f * a);
-        r32 min_root = (root_a < root_b) ? root_a : root_b;
+        /* r32 root_a = ((b * -1.0f) - (r32)sqrt(discriminant)) / (2.0f * a); */
+        /* r32 root_b = ((b * -1.0f) + (r32)sqrt(discriminant)) / (2.0f * a); */
+        /* r32 min_root = (root_a < root_b) ? root_a : root_b; */
+
+        r32 min_root = ((b * -1.0f) - (r32)sqrt(discriminant)) / (2.0f * a);
+        if(min_root < 0) { min_root *= -1; }
+
+        /* if (min_root > MAXIMUM_RAY_TIME) { min_root = MAXIMUM_RAY_TIME; } */
+        /* if (min_root < MAXIMUM_RAY_TIME) { min_root = MINIMUM_RAY_TIME; } */
+
         *_t_ = min_root;
     }
 

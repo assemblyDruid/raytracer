@@ -19,38 +19,38 @@ rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2
 rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall" %APP_ARCH% >nul
 
 :: VS 2019 Community Edition
-rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64 >nul
+IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64 >nul
 
 :: VS 2019 Enterprise Edition
 rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %APP_ARCH%
-IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall" %APP_ARCH% %APP_SDK_VER% >nul
+rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall" %APP_ARCH% %APP_SDK_VER% >nul
 
 :: Fix on some development machines with complicated VS SDK setups
-SET ERRORLEVEL=0
-SET "APP_LIB_UM_PATH=C:\Program Files (x86)\Windows Kits\10\Lib\%APP_SDK_VER%\um\%APP_ARCH%"
-SET "APP_LIB_UCRT_PATH=C:\Program Files (x86)\Windows Kits\10\Lib\%APP_SDK_VER%\ucrt\%APP_ARCH%"
-SET "APP_INC_UM_PATH=C:\Program Files (x86)\Windows Kits\10\Include\%APP_SDK_VER%\um"
-SET "APP_INC_UCRT_PATH=C:\Program Files (x86)\Windows Kits\10\Include\%APP_SDK_VER%\ucrt"
+rem SET ERRORLEVEL=0
+rem SET "APP_LIB_UM_PATH=C:\Program Files (x86)\Windows Kits\10\Lib\%APP_SDK_VER%\um\%APP_ARCH%"
+rem SET "APP_LIB_UCRT_PATH=C:\Program Files (x86)\Windows Kits\10\Lib\%APP_SDK_VER%\ucrt\%APP_ARCH%"
+rem SET "APP_INC_UM_PATH=C:\Program Files (x86)\Windows Kits\10\Include\%APP_SDK_VER%\um"
+rem SET "APP_INC_UCRT_PATH=C:\Program Files (x86)\Windows Kits\10\Include\%APP_SDK_VER%\ucrt"
 
-IF NOT EXIST "%APP_LIB_UM_PATH%" (
-   @echo [ error ] Invalid LIB_UM path: "%APP_LIB_UM_PATH%"
-   rem GOTO :exit
-)
+rem IF NOT EXIST "%APP_LIB_UM_PATH%" (
+rem    @echo [ error ] Invalid LIB_UM path: "%APP_LIB_UM_PATH%"
+rem    rem GOTO :exit
+rem )
 
-IF NOT EXIST "%APP_LIB_UCRT_PATH%" (
-   @echo [ error ] Invalid LIB_UCRT path: "%APP_LIB_UCRT_PATH%"
-   rem GOTO :exit
-)
+rem IF NOT EXIST "%APP_LIB_UCRT_PATH%" (
+rem    @echo [ error ] Invalid LIB_UCRT path: "%APP_LIB_UCRT_PATH%"
+rem    rem GOTO :exit
+rem )
 
-IF NOT EXIST "%APP_INC_UM_PATH%" (
-   @echo [ error ] Invalid INC_UM path: "%APP_INC_UM_PATH%"
-   rem GOTO :exit
-)
+rem IF NOT EXIST "%APP_INC_UM_PATH%" (
+rem    @echo [ error ] Invalid INC_UM path: "%APP_INC_UM_PATH%"
+rem    rem GOTO :exit
+rem )
 
-IF NOT EXIST "%APP_INC_UCRT_PATH%" (
-   @echo [ error ] Invalid INC_UCRT path: "%APP_INC_UM_PATH%"
-   rem GOTO :exit
-)
+rem IF NOT EXIST "%APP_INC_UCRT_PATH%" (
+rem    @echo [ error ] Invalid INC_UCRT path: "%APP_INC_UM_PATH%"
+rem    rem GOTO :exit
+rem )
 
 ::
 :: Compile & Link
@@ -70,11 +70,9 @@ IF NOT EXIST "%APP_INC_UCRT_PATH%" (
 IF %ERRORLEVEL% NEQ 0 GOTO :exit
 mkdir msvc_landfill >nul 2>nul
 pushd msvc_landfill >nul
-cl %SCRIPT_DIR%\\%APP_NAME%.c /W4 /WX /Z7 /GL /GS /MD /EHsc /nologo ^
-/I"%SCRIPT_DIR%" /I"%APP_INC_UM_PATH%" /I"%APP_INC_UCRT_PATH%" ^
+cl %SCRIPT_DIR%\\%APP_NAME%.c /std:c++latest /W4 /WX /Z7 /GL /GS /MD /EHsc /nologo ^
+/I"%SCRIPT_DIR%" ^
 /link /SUBSYSTEM:CONSOLE /NXCOMPAT /MACHINE:x64 /NODEFAULTLIB:MSVCRTD ^
-/LIBPATH:"%APP_LIB_UM_PATH%" ^
-/LIBPATH:"%APP_LIB_UCRT_PATH%" ^
 User32.Lib shell32.lib odbccp32.lib && ^
 xcopy /y %APP_NAME%.exe ..\ >null && ^
 popd >null && ^
@@ -82,3 +80,6 @@ rtx && ^
 start rtx.bmp
 
 :exit
+rem /I"%APP_INC_UM_PATH%" /I"%APP_INC_UCRT_PATH%" ^
+rem /LIBPATH:"%APP_LIB_UM_PATH%" ^
+rem /LIBPATH:"%APP_LIB_UCRT_PATH%" ^

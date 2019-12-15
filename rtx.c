@@ -4,7 +4,20 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <memory.h>
 #include <rtx.h>
+
+//
+// Endianness
+//
+#ifndef __LSB__
+#define __LSB__ 1 // 1=LSB/Little Endian, 0=MSB/Big Endian
+#if __LSB__
+#define _color_channel LSB_channel
+#else
+#define _color_channel MSB_channel
+#endif // __LSB__ (if)
+#endif // __LSB__ (ifndef)
 
 //
 // Image Properties
@@ -64,14 +77,46 @@ SetScaleVector(v3* const scale_vector)
 #pragma warning(pop)
 #endif
     {
-        scale_ratio = 1 / ((r32)IMAGE_HEIGHT / (r32)IMAGE_WIDTH);
-        v3Set(scale_vector, scale_ratio, 1.0f, 0.0f);
+        scale_ratio = (IMAGE_WIDTH/(r32)IMAGE_HEIGHT);
+        v3Set(scale_vector, scale_ratio, 1.0f, 1.0f);
     }
     else
     {
-        scale_ratio = 1 / ((r32)IMAGE_WIDTH / (r32)IMAGE_HEIGHT);
-        v3Set(scale_vector, 1.0f, scale_ratio, 0.0f);
+        scale_ratio = (IMAGE_HEIGHT/(r32)IMAGE_WIDTH);
+        v3Set(scale_vector, 1.0f, scale_ratio, 1.0f);
     }
+}
+
+
+// [ cfarvin::TODO ] This is a temporary hack to get things working.
+// [ cfarvin::TODO ] Impl dynamic array or bring from UnderstoneEngine.
+internal void
+InitializeSpheres(Sphere** sphere_buffer,
+                  size_t* const spheres_created)
+{
+#define __MAX_SPHERES__ 512
+    Sphere tmp_sphere_arr[__MAX_SPHERES__] = {0};
+
+    tmp_sphere_arr[0] = CreateSphereRaw(+0.00f,     // xpos
+                                        +0.00f,     // ypos
+                                        -1.00f,     // zpos
+                                        +0.25f,     // radius
+                                        0xFF0000FF, // color
+                                        spheres_created);
+
+    tmp_sphere_arr[1] = CreateSphereRaw(+0.75f,     // xpos
+                                        +0.00f,     // ypos
+                                        -1.00f,     // zpos
+                                        +0.25f,     // radius
+                                        0xFF00FF00, // color
+                                        spheres_created);
+
+    assert(*spheres_created <= __MAX_SPHERES__);
+#undef __MAX_SPHERES__
+
+    size_t sphere_bytes = sizeof(Sphere) * (*spheres_created);
+    *sphere_buffer = (Sphere*)malloc(sphere_bytes);
+    memcpy(*sphere_buffer, &tmp_sphere_arr, sphere_bytes);
 }
 
 
@@ -79,23 +124,27 @@ int
 main(int argc, char** argv)
 {
     if (argc || argv) {} // Silence unused variable warning
+
     BasicMathsTest();
 
-    u32*   pix_arr = (u32*)calloc(IMAGE_WIDTH * IMAGE_HEIGHT, sizeof(u32));
-    Ray ray = {{0, 0, 0}, {0, 0, 0}};
-    Sphere sphere = {{0.0f, 0.0f, -1.0f}, 0.250f, 0x00000000FF};
+    // [ cfarvin::TODO ] This is a temporary hack to get things working.
+    size_t  num_spheres = 0;
+    Sphere* sphere_arr  = NULL;
+    InitializeSpheres(&sphere_arr, &num_spheres);
+    assert(sphere_arr);
+
+    u32* pix_arr = (u32*)calloc(IMAGE_WIDTH * IMAGE_HEIGHT, sizeof(u32));
+    Ray  ray     = {{0, 0, 0}, {0, 0, -1}};
+
     v3 scale_vector = {0};
     SetScaleVector(&scale_vector);
 
+    v3 lower_left_corner = {-(r32)(IMAGE_WIDTH/2), -(r32)(IMAGE_HEIGHT/2), -1};
+    v3Norm(&lower_left_corner);
 
     size_t pix_arr_idx = 0;
-    u32    this_color;
-    r32    x_component = 0;
-    r32    y_component = 0;
-    /* r32    z_component = 0; */
-    r32    _t_ = -1;
-    v3    point_of_intersection = {0};
-    v3    normal_vector = {0};
+    Color  this_color  = {0};
+    r32    _t_         = -1;
     for (size_t Y = 0;
          Y < IMAGE_HEIGHT;
          Y++)
@@ -104,50 +153,40 @@ main(int argc, char** argv)
              X < IMAGE_WIDTH;
              X++)
         {
-            this_color  = 0;
+            r32 closest_obj_t = (r32)MAXIMUM_RAY_TIME;
+            /* this_color.value  = 0xFFFFFFFF; */
+            this_color.value = 0x00000000;
             pix_arr_idx = (IMAGE_WIDTH * Y) + X;
 
-            // Correct for the origin starting from LLHC and progressing
-            // rightwards and upwards with screen coords bounded at {-1, 1}
-            x_component = ((r32)X / (r32)IMAGE_WIDTH)  - 0.5f;
-            y_component = ((r32)Y / (r32)IMAGE_HEIGHT) - 0.5f;
+            ray.direction.x = lower_left_corner.x + (X/(r32)IMAGE_WIDTH) * scale_vector.x;
+            ray.direction.y = lower_left_corner.y + (Y/(r32)IMAGE_HEIGHT) * scale_vector.y;
+            v3Norm(&ray.direction);
 
-            // Correct for image scaling
-            x_component *= scale_vector.x;
-            y_component *= scale_vector.y;
-
-            // Clip
-            if (x_component > 1.0f) { x_component = 1.0f; }
-            if (y_component > 1.0f) { y_component = 1.0f; }
-            if (x_component < -1.0f) { x_component = -1.0f; }
-            if (y_component < -1.0f) { y_component = -1.0f; }
-
-            v3SetAndNorm(&ray.direction,
-                         x_component,
-                         y_component,
-                         -1);
-
-
-            if (DoesIntersectSphere(&ray, &sphere, &_t_))
+            for (size_t sphere_index = 0;
+                 sphere_index < num_spheres;
+                 sphere_index++)
             {
-                point_of_intersection.x = ray.origin.x + (_t_ * ray.direction.x);
-                point_of_intersection.y = ray.origin.y + (_t_ * ray.direction.y);
-                point_of_intersection.z = ray.origin.z + (_t_ * ray.direction.z);
-                v3Sub(&point_of_intersection, &sphere.position, &normal_vector);
-                v3Norm(&normal_vector);
-                if (normal_vector.x < 0) { normal_vector.x *= -1; };
-                if (normal_vector.y < 0) { normal_vector.y *= -1; };
-                if (normal_vector.z < 0) { normal_vector.z *= -1; };
-                this_color = 0x000000FF;
-                this_color = this_color << 8;
-                this_color += (u8)(normal_vector.x * 255);
-                this_color = this_color << 8;
-                this_color += (u8)(normal_vector.y * 255);
-                this_color = this_color << 8;
-                this_color += (u8)(normal_vector.z * 255);
+                Sphere sphere = sphere_arr[sphere_index];
+                if (DoesIntersectSphere(&ray, &sphere, &_t_) &&
+                    (_t_ < closest_obj_t))
+                {
+                    closest_obj_t = _t_;
+
+                    this_color._color_channel.R = (u8)(sphere.material.color._color_channel.R -
+                                                    (2 * sphere.material.color._color_channel.R * _t_));
+                    this_color._color_channel.G = (u8)(sphere.material.color._color_channel.G -
+                                                    (2 * sphere.material.color._color_channel.G * _t_));
+                    this_color._color_channel.B = (u8)(sphere.material.color._color_channel.B -
+                                                    (2 * sphere.material.color._color_channel.B * _t_));
+
+                    if (this_color._color_channel.R > 255) { this_color._color_channel.R = 255; }
+                    if (this_color._color_channel.G > 255) { this_color._color_channel.G = 255; }
+                    if (this_color._color_channel.B > 255) { this_color._color_channel.B = 255; }
+                    if(this_color.value < 0) { this_color.value = 0; }
+                }
             }
 
-            pix_arr[pix_arr_idx] = this_color;;
+            pix_arr[pix_arr_idx] = this_color.value;
         }
     }
 
