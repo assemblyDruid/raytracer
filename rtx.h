@@ -75,6 +75,18 @@ typedef struct
 
 typedef struct
 {
+    const v3 LLHC;
+    const v3 ULHC;
+    const v3 URHC;
+    const v3 LRHC;
+    const r32 vertical_span;
+    const r32 horizontal_span;
+    const r32 plane_z;
+} ImagePlane;
+
+
+typedef struct
+{
     u32 color;
 } Material;
 
@@ -252,34 +264,36 @@ v3CrossAndNorm(v3* const a, v3* const b, v3* const result)
 internal inline bool
 DoesIntersectSphere(Ray* const ray,
                     Sphere* const sphere,
-                    r32* const _t_)
+                    r32* const distance)
 {
     assert(ray && sphere);
     assert(v3IsNorm(&ray->direction));
     bool ret = false;
 
     // Quadratic
+    r32 sphere_radius_sq = sphere->radius * sphere->radius;
     v3 ray_to_sphere = {0};
     v3Sub(&ray->origin, &sphere->position, &ray_to_sphere);
+    assert(v3Mag(&ray_to_sphere) >= sphere_radius_sq);
     v3Norm(&ray_to_sphere);
 
-    r32 a = v3Dot(&ray->direction, &ray->direction);
+    r32 ray_dir_mag = v3Mag(&ray->direction);
+    r32 a = ray_dir_mag * ray_dir_mag;
     r32 b = 2.0f * (v3Dot(&ray->direction, &ray_to_sphere));
-    r32 c = v3Dot(&ray_to_sphere, &ray_to_sphere) -
-        (sphere->radius * sphere->radius);
+    r32 c = v3Dot(&ray_to_sphere, &ray_to_sphere) - sphere_radius_sq;
     r32 discriminant = (b * b) - (4.0f * a * c);
+    assert(c > 0);
 
     if (discriminant >= 0)
     {
         ret = true;
     }
 
-    if(_t_)
+    if(distance && ret)
     {
-        r32 root_a = ((b * -1.0f) - (r32)sqrt(discriminant)) / (2.0f * a);
-        r32 root_b = ((b * -1.0f) + (r32)sqrt(discriminant)) / (2.0f * a);
-        r32 min_root = (root_a < root_b) ? root_a : root_b;
-        *_t_ = min_root;
+        r32 dist = ((b * -1.0f) - (r32)sqrt(discriminant)) / (2.0f * a);
+        assert(dist >= 0);
+        *distance = dist;
     }
 
     return ret;

@@ -75,6 +75,38 @@ SetScaleVector(v3* const scale_vector)
 }
 
 
+internal void
+InitializeImagePlane(ImagePlane* const image_plane,
+                     r32 x_max,
+                     r32 x_min,
+                     r32 y_max,
+                     r32 y_min,
+                     r32 z_min)
+{
+    v3*  LLHC            = (v3*)&(image_plane->LLHC);
+    v3*  ULHC            = (v3*)&(image_plane->ULHC);
+    v3*  URHC            = (v3*)&(image_plane->URHC);
+    v3*  LRHC            = (v3*)&(image_plane->LRHC);
+    r32* vertical_span   = (r32*)&(image_plane->vertical_span);
+    r32* horizontal_span = (r32*)&(image_plane->horizontal_span);
+    r32* plane_z         = (r32*)&(image_plane->plane_z);
+
+    v3Set(LLHC, x_min, y_min, z_min);
+    v3Set(ULHC, x_min, y_max, z_min);
+    v3Set(URHC, x_max, y_max, z_min);
+    v3Set(LRHC, x_max, y_min, z_min);
+    *plane_z = z_min;
+
+    r32 abs_x_max = (x_max > 0) ? x_max : (-1 * x_max);
+    r32 abs_x_min = (x_min > 0) ? x_min : (-1 * x_min);
+    r32 abs_y_max = (y_max > 0) ? y_max : (-1 * y_max);
+    r32 abs_y_min = (y_min > 0) ? y_min : (-1 * y_min);
+
+    *vertical_span   = abs_y_max - abs_y_min;
+    *horizontal_span = abs_x_max - abs_x_min;
+}
+
+
 int
 main(int argc, char** argv)
 {
@@ -83,17 +115,32 @@ main(int argc, char** argv)
 
     u32*   pix_arr = (u32*)calloc(IMAGE_WIDTH * IMAGE_HEIGHT, sizeof(u32));
     Ray ray = {{0, 0, 0}, {0, 0, 0}};
-    Sphere sphere = {{0.0f, 0.0f, -1.0f}, 0.250f, 0x00000000FF};
     v3 scale_vector = {0};
     SetScaleVector(&scale_vector);
 
+    ImagePlane image_plane = {0};
+    InitializeImagePlane(&image_plane,
+                         +1.0f,
+                         -1.0f,
+                         +1.0f,
+                         -1.0f,
+                         -0.5f);
+
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable:4204)
+#endif
+    Sphere sphere = {{0.0f, 0.0f, (r32)image_plane.plane_z}, 0.5f, {0x00000000FF}};
+#ifdef _WIN32
+#pragma warning(pop)
+#endif
 
     size_t pix_arr_idx = 0;
     u32    this_color;
     r32    x_component = 0;
     r32    y_component = 0;
     /* r32    z_component = 0; */
-    r32    _t_ = -1;
+    r32    distance = -1;
     v3    point_of_intersection = {0};
     v3    normal_vector = {0};
     for (size_t Y = 0;
@@ -107,37 +154,36 @@ main(int argc, char** argv)
             this_color  = 0;
             pix_arr_idx = (IMAGE_WIDTH * Y) + X;
 
-            // Correct for the origin starting from LLHC and progressing
-            // rightwards and upwards with screen coords bounded at {-1, 1}
-            x_component = ((r32)X / (r32)IMAGE_WIDTH)  - 0.5f;
-            y_component = ((r32)Y / (r32)IMAGE_HEIGHT) - 0.5f;
+            x_component = image_plane.LLHC.x + ((r32)(X/(r32)IMAGE_WIDTH));
+            y_component = image_plane.LLHC.y + ((r32)(Y/(r32)IMAGE_HEIGHT));
 
             // Correct for image scaling
             x_component *= scale_vector.x;
             y_component *= scale_vector.y;
 
             // Clip
-            if (x_component > 1.0f) { x_component = 1.0f; }
-            if (y_component > 1.0f) { y_component = 1.0f; }
-            if (x_component < -1.0f) { x_component = -1.0f; }
-            if (y_component < -1.0f) { y_component = -1.0f; }
+            /* if (x_component > 1.0f) { x_component = 1.0f; } */
+            /* if (y_component > 1.0f) { y_component = 1.0f; } */
+            /* if (x_component < -1.0f) { x_component = -1.0f; } */
+            /* if (y_component < -1.0f) { y_component = -1.0f; } */
 
             v3SetAndNorm(&ray.direction,
                          x_component,
                          y_component,
                          -1);
 
-
-            if (DoesIntersectSphere(&ray, &sphere, &_t_))
+            if (DoesIntersectSphere(&ray, &sphere, &distance))
             {
-                point_of_intersection.x = ray.origin.x + (_t_ * ray.direction.x);
-                point_of_intersection.y = ray.origin.y + (_t_ * ray.direction.y);
-                point_of_intersection.z = ray.origin.z + (_t_ * ray.direction.z);
+                point_of_intersection.x = ray.origin.x + (distance * ray.direction.x);
+                point_of_intersection.y = ray.origin.y + (distance * ray.direction.y);
+                point_of_intersection.z = ray.origin.z + (distance * ray.direction.z);
                 v3Sub(&point_of_intersection, &sphere.position, &normal_vector);
                 v3Norm(&normal_vector);
+
                 if (normal_vector.x < 0) { normal_vector.x *= -1; };
                 if (normal_vector.y < 0) { normal_vector.y *= -1; };
                 if (normal_vector.z < 0) { normal_vector.z *= -1; };
+
                 this_color = 0x000000FF;
                 this_color = this_color << 8;
                 this_color += (u8)(normal_vector.x * 255);
