@@ -59,6 +59,7 @@ rem )
 :: /TC                  Compile as C code.
 :: /TP                  Compile as C++ code.
 :: /Oi                  Enable intrinsic functions.
+:: /Od 	                Disables optimization.
 :: /Qpar                Enable parallel code generation.
 :: /Ot                  Favor fast code (over small code).
 :: /Ob2                 Enable full inline expansion. [ cfarvin::NOTE ] Debugging impact.
@@ -76,7 +77,7 @@ rem )
 IF %ERRORLEVEL% NEQ 0 GOTO :exit
 mkdir msvc_landfill >nul 2>nul
 pushd msvc_landfill >nul
-cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Oi /W4 /WX /Z7 /GL /GS /MD /EHsc /nologo ^
+cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Oi /W4 /WX /02 /GL /MD /EHsc /nologo ^
 /I"%SCRIPT_DIR%" ^
 /link /SUBSYSTEM:CONSOLE /NXCOMPAT /MACHINE:x64 /NODEFAULTLIB:MSVCRTD ^
 User32.Lib shell32.lib odbccp32.lib && ^

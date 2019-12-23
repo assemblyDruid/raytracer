@@ -4,30 +4,18 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <memory.h>
 #include <rtx.h>
-
-
-//
-// Endianness
-//
-#ifndef __LSB__
-#define __LSB__ 1 // 1=LSB/Little Endian, 0=MSB/Big Endian
-#if __LSB__
-#define channel LSB_channel
-#else
-#define channel MSB_channel
-#endif // __LSB__ (if)
-#endif // __LSB__ (ifndef)
-
 
 //
 // Image Properties
 //
+// Square
+/* #define IMAGE_WIDTH  720 */
+/* #define IMAGE_HEIGHT 720 */
+
 // 720p
 #define IMAGE_WIDTH  1280
 #define IMAGE_HEIGHT 720
-#define ASPECT_RATIO (r32)(IMAGE_WIDTH/(r32)IMAGE_HEIGHT)
 
 // Full HD
 /* #define IMAGE_WIDTH  1920 */
@@ -36,126 +24,36 @@
 // 4K
 /* #define IMAGE_WIDTH  3840 */
 /* #define IMAGE_HEIGHT 2160 */
-#define NUM_PIXELS   IMAGE_WIDTH*IMAGE_HEIGHT
-#define IMAGE_NAME   "rtx.bmp"
+
+#define ASPECT_RATIO  (r32)(IMAGE_WIDTH/(r32)IMAGE_HEIGHT)
+#define NUM_PIXELS    IMAGE_WIDTH*IMAGE_HEIGHT
+#define H_FEILD_OF_VIEW 114
+// #define V_FEILD_OF_VIEW 150 [ cfarvin::NOTE ] Unused (for now?)
+#define IMAGE_NAME    "rtx.bmp"
 
 
 internal void
-WriteBitmap(u32* pix_arr, u32 image_width, u32 image_height)
+WriteBitmap(u32* pixarr, u32 image_width, u32 image_height)
 {
-    assert(pix_arr && image_width && image_height);
-    u32 pix_arr_size = sizeof(u32) * NUM_PIXELS;
+    assert(pixarr && image_width && image_height);
+    u32 pixarr_size = sizeof(u32) * NUM_PIXELS;
 
     BitmapHeader bitmap_header = {0};
     bitmap_header.magic_number = 0x4D42;
-    bitmap_header.file_size = pix_arr_size + sizeof(BitmapHeader);
+    bitmap_header.file_size = pixarr_size + sizeof(BitmapHeader);
     bitmap_header.pix_arr_offset = sizeof(BitmapHeader);
     bitmap_header.bitmap_header_size = sizeof(BitmapHeader) - 14;
     bitmap_header.bitmap_width = image_width;
     bitmap_header.bitmap_height = image_height;
     bitmap_header.num_color_planes = 1;
     bitmap_header.bits_per_pix = 32;
-    bitmap_header.pix_arr_size = pix_arr_size;
+    bitmap_header.pix_arr_size = pixarr_size;
 
     FILE* bitmap_file = fopen(IMAGE_NAME, "wb");
     assert(bitmap_file);
 
     fwrite(&bitmap_header, sizeof(BitmapHeader), 1, bitmap_file);
-    fwrite(pix_arr,  pix_arr_size, 1, bitmap_file);
-}
-
-
-internal void
-SetScaleVector(v3* const scale_vec)
-{
-    assert(scale_vec);
-    r32 scale_ratio = 0.0f;
-
-#ifdef _WIN32
-#pragma warning(push)
-#pragma warning(disable:4127)
-#endif
-    if (IMAGE_WIDTH > IMAGE_HEIGHT)
-#ifdef _WIN32
-#pragma warning(pop)
-#endif
-    {
-        scale_ratio = (IMAGE_WIDTH/(r32)IMAGE_HEIGHT);
-        v3Set(scale_vec, scale_ratio, 1.0f, 1.0f);
-    }
-    else
-    {
-        scale_ratio = (IMAGE_HEIGHT/(r32)IMAGE_WIDTH);
-        v3Set(scale_vec, 1.0f, scale_ratio, 1.0f);
-    }
-}
-
-
-
-// [ cfarvin::TODO ] This is a temporary hack to get things working.
-// [ cfarvin::TODO ] Impl dynamic array or bring from UnderstoneEngine.
-internal void
-InitializeSpheres(Sphere** sphere_buffer,
-                  size_t* const spheres_created,
-                  ImagePlane* const img_plane)
-{
-#define __MAX_SPHERES__ 512
-    assert(sphere_buffer && spheres_created);
-    Sphere tmp_sphere_arr[__MAX_SPHERES__] = {0};
-
-    tmp_sphere_arr[0] = CreateSphereRaw(+0.00f,
-                                        +0.00f,
-                                        img_plane->z_dist,
-                                        +0.025f, // Radius
-                                        0xFF0000FF,
-                                        spheres_created);
-
-    tmp_sphere_arr[1] = CreateSphereRaw(+0.10f,
-                                        +0.00f,
-                                        img_plane->z_dist,
-                                        +0.025f, // Radius
-                                        0xFF00FF00,
-                                        spheres_created);
-
-    assert(*spheres_created <= __MAX_SPHERES__);
-#undef __MAX_SPHERES__
-
-    size_t sphere_bytes = sizeof(Sphere) * (*spheres_created);
-    *sphere_buffer = (Sphere*)malloc(sphere_bytes);
-    memcpy(*sphere_buffer, &tmp_sphere_arr, sphere_bytes);
-}
-
-
-internal void
-InitializeImagePlane(ImagePlane* const img_plane,
-                     r32 x_max,
-                     r32 x_min,
-                     r32 y_max,
-                     r32 y_min,
-                     r32 z_min)
-{
-    assert(img_plane);
-    v3*  LLHC   = (v3*)&(img_plane->LLHC);
-    v3*  ULHC   = (v3*)&(img_plane->ULHC);
-    v3*  URHC   = (v3*)&(img_plane->URHC);
-    v3*  LRHC   = (v3*)&(img_plane->LRHC);
-    r32* height = (r32*)&(img_plane->height);
-    r32* width  = (r32*)&(img_plane->width);
-    r32* z_dist = (r32*)&(img_plane->z_dist);
-
-    v3Set(LLHC, x_min, y_min, z_min);
-    v3Set(ULHC, x_min, y_max, z_min);
-    v3Set(URHC, x_max, y_max, z_min);
-    v3Set(LRHC, x_max, y_min, z_min);
-    *z_dist = z_min;
-
-    r32 abs_x_max = (x_max > 0) ? x_max : (-1 * x_max);
-    r32 abs_x_min = (x_min > 0) ? x_min : (-1 * x_min);
-    r32 abs_y_max = (y_max > 0) ? y_max : (-1 * y_max);
-    r32 abs_y_min = (y_min > 0) ? y_min : (-1 * y_min);
-
-    *height = abs_y_max + abs_y_min;
-    *width  = abs_x_max + abs_x_min;
+    fwrite(pixarr,  pixarr_size, 1, bitmap_file);
 }
 
 
@@ -165,94 +63,75 @@ main(int argc, char** argv)
     if (argc || argv) {} // Silence unused variable warning
 
     BasicMathsTest();
+    XorShift32State = 42;
 
-    u32* pix_arr = (u32*)calloc(IMAGE_WIDTH * IMAGE_HEIGHT, sizeof(u32));
+    u32* pixarr = (u32*)calloc(IMAGE_WIDTH * IMAGE_HEIGHT, sizeof(u32));
     Ray  ray     = {{0, 0, 0}, {0, 0, -1}};
 
-    v3 scale_vec = {0};
-    SetScaleVector(&scale_vec);
+    for (size_t ii = 0; ii < 1000000; ii++)
+    {
+        r32 rand = NormalBoundedXorShift32();
+        assert(rand >= 0.0f && rand <= 1.0f);
+    }
 
-    /* v3 lower_left_corner = {-(r32)(IMAGE_WIDTH/2), -(r32)(IMAGE_HEIGHT/2), -1}; */
-    /* v3Norm(&lower_left_corner); */
-
-    ImagePlane img_plane = {0};
-    InitializeImagePlane(&img_plane,
-                         +1.0f,
-                         -1.0f,
-                         +1.0f,
-                         -1.0f,
-                         -0.10f);
-
-    // [ cfarvin::TODO ] This is a temporary hack to get things working.
     size_t  num_spheres = 0;
-    Sphere* sphere_arr  = NULL;
-    InitializeSpheres(&sphere_arr, &num_spheres, &img_plane);
-    assert(sphere_arr && num_spheres);
+    Sphere sphere_arr[3] = {0};
+    sphere_arr[0] = CreateSphereRaw(-0.00f,
+                                    -3.00f,
+                                    -9.0f,
+                                    +5.0f, // Radius
+                                    0xFF00CA00,
+                                    &num_spheres);
 
-    size_t pix_arr_idx = 0;
+    sphere_arr[1] = CreateSphereRaw(+0.00f,
+                                    +0.00f,
+                                    -3.50f,
+                                    +0.5f, // Radius
+                                    0xFF0000CA,
+                                    &num_spheres);
+
+    size_t pixarr_idx = 0;
     bool does_intersect = false;
     Color pix_color = {0};
     r32 distance = MAX_RAY_DIST;
-    r32 pixel_NDC_x = 0.0f;
-    r32 pixel_NDC_y = 0.0f;
-    r32 pixel_screen_x = 0.0f;
-    r32 pixel_screen_y = 0.0f;
-    r32 pixel_camera_x = 0.0f;
-    r32 pixel_camera_y = 0.0f;
-
-    for (size_t Y = 0;
-         Y < IMAGE_HEIGHT;
-         Y++)
+    r32 aspect_ratio = IMAGE_WIDTH/(r32)IMAGE_HEIGHT;
+    for (size_t pix_y = 0;
+         pix_y < IMAGE_HEIGHT;
+         pix_y++)
     {
-        for (size_t X = 0;
-             X < IMAGE_WIDTH;
-             X++)
+        for (size_t pix_x = 0;
+             pix_x < IMAGE_WIDTH;
+             pix_x++)
         {
             r32 closest_obj_t = (r32)MAX_RAY_DIST;
-            pix_color.value = 0xFF202020;
-            pix_arr_idx = (IMAGE_WIDTH * Y) + X;
-            pixel_NDC_x = (r32)((X + 0.5f)/(r32)IMAGE_WIDTH);
-            pixel_NDC_y = (r32)((Y + 0.5f)/(r32)IMAGE_HEIGHT);
-            /* pixel_screen_x = img_plane.width * pixel_NDC_x - img_plane.LLHC.x; */
-            /* pixel_screen_y = img_plane.height * pixel_NDC_y - img_plane.LLHC.y; */
-            pixel_screen_x = 2 * pixel_NDC_x - 1;
-            pixel_screen_y = 2 * pixel_NDC_y - 1;
-            pixel_camera_x = pixel_screen_x * scale_vec.x;
-            pixel_camera_y = pixel_screen_y * scale_vec.y;
-            ray.direction.x = pixel_screen_x;
-            ray.direction.y = pixel_screen_y;
-            /* v3Norm&ray.direction); */
+            pix_color.value = 0xFF202020; // Default color
+            pixarr_idx++;
+            ray.direction.x = ((pix_x/(r32)IMAGE_WIDTH) - 0.5f) * aspect_ratio;
+            ray.direction.y = (pix_y/(r32)IMAGE_HEIGHT) - 0.5f;
 
-            // Intersect Spheres
             for (size_t sphere_index = 0;
                  sphere_index < num_spheres;
                  sphere_index++)
             {
                 Sphere sphere = sphere_arr[sphere_index];
                 does_intersect = DoesIntersectSphere(&ray, &sphere, &distance);
-                if ( does_intersect && (distance < closest_obj_t))
+                if ( does_intersect &&
+                     (distance < closest_obj_t) &&
+                     (distance <= MAX_RAY_DIST) &&
+                     (distance >= MIN_RAY_DIST))
                 {
                     closest_obj_t = distance;
-
-                    pix_color.channel.R = (u8)(sphere.material.color.channel.R -
-                                                    (sphere.material.color.channel.R * distance));
-                    pix_color.channel.G = (u8)(sphere.material.color.channel.G -
-                                                    (sphere.material.color.channel.G * distance));
-                    pix_color.channel.B = (u8)(sphere.material.color.channel.B -
-                                                    (sphere.material.color.channel.B * distance));
-
-                    if (pix_color.channel.R > 255) { pix_color.channel.R = 255; }
-                    if (pix_color.channel.G > 255) { pix_color.channel.G = 255; }
-                    if (pix_color.channel.B > 255) { pix_color.channel.B = 255; }
-                    if(pix_color.value < 0) { pix_color.value = 0; }
+                    pix_color.channel.R = (u8)(sphere.material.color.channel.R / distance);
+                    pix_color.channel.G = (u8)(sphere.material.color.channel.G / distance);
+                    pix_color.channel.B = (u8)(sphere.material.color.channel.B / distance);
                 }
             }
 
-            pix_arr[pix_arr_idx] = pix_color.value;
+            pixarr[pixarr_idx] = pix_color.value;
         }
     }
 
-    WriteBitmap(pix_arr, IMAGE_WIDTH, IMAGE_HEIGHT);
+    WriteBitmap(pixarr, IMAGE_WIDTH, IMAGE_HEIGHT);
     printf("[ success ]\n");
     return 0;
 }
