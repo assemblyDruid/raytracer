@@ -7,17 +7,19 @@
 #include <memory.h>
 #include <rtx.h>
 
+
 //
 // Endianness
 //
 #ifndef __LSB__
 #define __LSB__ 1 // 1=LSB/Little Endian, 0=MSB/Big Endian
 #if __LSB__
-#define _color_channel LSB_channel
+#define channel LSB_channel
 #else
-#define _color_channel MSB_channel
+#define channel MSB_channel
 #endif // __LSB__ (if)
 #endif // __LSB__ (ifndef)
+
 
 //
 // Image Properties
@@ -108,12 +110,12 @@ InitializeSpheres(Sphere** sphere_buffer,
                                         0xFF0000FF,
                                         spheres_created);
 
-    /* tmp_sphere_arr[1] = CreateSphereRaw(+0.50f, */
-    /*                                     +0.00f, */
-    /*                                     img_plane->z_dist, */
-    /*                                     +0.50f, // Radius */
-    /*                                     0xFF00FF00, */
-    /*                                     spheres_created); */
+    tmp_sphere_arr[1] = CreateSphereRaw(+0.10f,
+                                        +0.00f,
+                                        img_plane->z_dist,
+                                        +0.025f, // Radius
+                                        0xFF00FF00,
+                                        spheres_created);
 
     assert(*spheres_created <= __MAX_SPHERES__);
 #undef __MAX_SPHERES__
@@ -185,10 +187,11 @@ main(int argc, char** argv)
     size_t  num_spheres = 0;
     Sphere* sphere_arr  = NULL;
     InitializeSpheres(&sphere_arr, &num_spheres, &img_plane);
-    assert(sphere_arr);
+    assert(sphere_arr && num_spheres);
 
     size_t pix_arr_idx = 0;
-    Color this_color = {0};
+    bool does_intersect = false;
+    Color pix_color = {0};
     r32 distance = MAX_RAY_DIST;
     r32 pixel_NDC_x = 0.0f;
     r32 pixel_NDC_y = 0.0f;
@@ -196,6 +199,7 @@ main(int argc, char** argv)
     r32 pixel_screen_y = 0.0f;
     r32 pixel_camera_x = 0.0f;
     r32 pixel_camera_y = 0.0f;
+
     for (size_t Y = 0;
          Y < IMAGE_HEIGHT;
          Y++)
@@ -205,7 +209,7 @@ main(int argc, char** argv)
              X++)
         {
             r32 closest_obj_t = (r32)MAX_RAY_DIST;
-            this_color.value = 0xFF202020;
+            pix_color.value = 0xFF202020;
             pix_arr_idx = (IMAGE_WIDTH * Y) + X;
             pixel_NDC_x = (r32)((X + 0.5f)/(r32)IMAGE_WIDTH);
             pixel_NDC_y = (r32)((Y + 0.5f)/(r32)IMAGE_HEIGHT);
@@ -225,26 +229,26 @@ main(int argc, char** argv)
                  sphere_index++)
             {
                 Sphere sphere = sphere_arr[sphere_index];
-                if (DoesIntersectSphere(&ray, &sphere, &distance) &&
-                    (distance < closest_obj_t))
+                does_intersect = DoesIntersectSphere(&ray, &sphere, &distance);
+                if ( does_intersect && (distance < closest_obj_t))
                 {
                     closest_obj_t = distance;
 
-                    this_color._color_channel.R = (u8)(sphere.material.color._color_channel.R -
-                                                    (sphere.material.color._color_channel.R * distance));
-                    this_color._color_channel.G = (u8)(sphere.material.color._color_channel.G -
-                                                    (sphere.material.color._color_channel.G * distance));
-                    this_color._color_channel.B = (u8)(sphere.material.color._color_channel.B -
-                                                    (sphere.material.color._color_channel.B * distance));
+                    pix_color.channel.R = (u8)(sphere.material.color.channel.R -
+                                                    (sphere.material.color.channel.R * distance));
+                    pix_color.channel.G = (u8)(sphere.material.color.channel.G -
+                                                    (sphere.material.color.channel.G * distance));
+                    pix_color.channel.B = (u8)(sphere.material.color.channel.B -
+                                                    (sphere.material.color.channel.B * distance));
 
-                    if (this_color._color_channel.R > 255) { this_color._color_channel.R = 255; }
-                    if (this_color._color_channel.G > 255) { this_color._color_channel.G = 255; }
-                    if (this_color._color_channel.B > 255) { this_color._color_channel.B = 255; }
-                    if(this_color.value < 0) { this_color.value = 0; }
+                    if (pix_color.channel.R > 255) { pix_color.channel.R = 255; }
+                    if (pix_color.channel.G > 255) { pix_color.channel.G = 255; }
+                    if (pix_color.channel.B > 255) { pix_color.channel.B = 255; }
+                    if(pix_color.value < 0) { pix_color.value = 0; }
                 }
             }
 
-            pix_arr[pix_arr_idx] = this_color.value;
+            pix_arr[pix_arr_idx] = pix_color.value;
         }
     }
 

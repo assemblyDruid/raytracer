@@ -1,7 +1,18 @@
 #ifndef __RTX_H__
 #define __RTX_H___
 
+//
+// Release/Debug Macros
+//
+#define __RTX_DEBUG__ 1
+#ifdef __RTX_DEBUG__
+#define _inline_ /* DEBUG INLINE */
+#define internal /* DEBUG STATIC */
+#else
+#define _inline_ inline
 #define internal static
+#endif // ifdef __RTX_DEBUG__
+
 #define TOLERANCE 0.00001f
 
 // Rays tavel in
@@ -220,7 +231,7 @@ CreateSphereRaw(r32 xpos,
 /* } Cube; */
 
 
-internal inline bool
+internal _inline_ bool
 IsWithinTolerance(r32 value, r32 target_value)
 {
     r32 min = value - TOLERANCE;
@@ -237,7 +248,7 @@ IsWithinTolerance(r32 value, r32 target_value)
 //
 // v3
 //
-internal inline void
+internal _inline_ void
 v3Set(v3* const result, r32 x, r32 y, r32 z)
 {
     assert(result);
@@ -247,7 +258,7 @@ v3Set(v3* const result, r32 x, r32 y, r32 z)
 }
 
 
-internal inline bool
+internal _inline_ bool
 v3IsEqual(v3* const a, v3* const b)
 {
     assert(a && b);
@@ -257,7 +268,7 @@ v3IsEqual(v3* const a, v3* const b)
 }
 
 
-internal inline r32
+internal _inline_ r32
 v3Mag(v3* const a)
 {
     assert(a);
@@ -269,7 +280,7 @@ v3Mag(v3* const a)
 }
 
 
-internal inline bool
+internal _inline_ bool
 v3IsNorm(v3* const a)
 {
     if (IsWithinTolerance(v3Mag(a), 1.0f))
@@ -280,7 +291,7 @@ v3IsNorm(v3* const a)
 }
 
 
-internal inline void
+internal _inline_ void
 v3Norm(v3* const a)
 {
     assert(a);
@@ -299,7 +310,7 @@ v3Norm(v3* const a)
 }
 
 
-internal inline void
+internal _inline_ void
 v3SetAndNorm(v3* const result, r32 x, r32 y, r32 z)
 {
     assert(result);
@@ -310,7 +321,7 @@ v3SetAndNorm(v3* const result, r32 x, r32 y, r32 z)
 }
 
 
-internal inline void
+internal _inline_ void
 v3Add(v3* const a, v3* const b, v3* const result)
 {
     assert(a && b && result);
@@ -320,7 +331,7 @@ v3Add(v3* const a, v3* const b, v3* const result)
 }
 
 
-internal inline void
+internal _inline_ void
 v3Sub(v3* const a, v3* const b, v3* const result)
 {
     assert(a && b && result);
@@ -330,7 +341,7 @@ v3Sub(v3* const a, v3* const b, v3* const result)
 }
 
 
-internal inline void
+internal _inline_ void
 v3ScalarMul(v3* const a, r32 scalar, v3* const result)
 {
     assert(a && result);
@@ -340,7 +351,7 @@ v3ScalarMul(v3* const a, r32 scalar, v3* const result)
 }
 
 
-internal inline r32
+internal _inline_ r32
 v3Dot(v3* const a, v3* const b)
 {
     assert(a && b);
@@ -352,7 +363,7 @@ v3Dot(v3* const a, v3* const b)
 }
 
 
-internal inline void
+internal _inline_ void
 v3Cross(v3* const a, v3* const b, v3* const result)
 {
     assert(a && b && result);
@@ -363,7 +374,7 @@ v3Cross(v3* const a, v3* const b, v3* const result)
 }
 
 
-internal inline void
+internal _inline_ void
 v3CrossAndNorm(v3* const a, v3* const b, v3* const result)
 {
     assert(a && b && result);
@@ -375,7 +386,7 @@ v3CrossAndNorm(v3* const a, v3* const b, v3* const result)
 //
 // v4
 //
-internal inline void
+internal _inline_ void
 v4Set(v4* const result, r32 x, r32 y, r32 z, r32 w)
 {
     assert(result);
@@ -386,7 +397,7 @@ v4Set(v4* const result, r32 x, r32 y, r32 z, r32 w)
 }
 
 
-internal inline bool
+internal _inline_ bool
 v4IsEqual(v4* const a, v4* const b)
 {
     assert(a && b);
@@ -397,7 +408,7 @@ v4IsEqual(v4* const a, v4* const b)
 }
 
 
-internal inline r32
+internal _inline_ r32
 v4Mag(v4* const a)
 {
     assert(a);
@@ -410,7 +421,7 @@ v4Mag(v4* const a)
 }
 
 
-internal inline bool
+internal _inline_ bool
 v4IsNorm(v4* const a)
 {
     if (IsWithinTolerance(v4Mag(a), 1.0f))
@@ -421,7 +432,7 @@ v4IsNorm(v4* const a)
 }
 
 
-internal inline void
+internal _inline_ void
 v4Norm(v4* const a)
 {
     assert(a);
@@ -441,7 +452,7 @@ v4Norm(v4* const a)
 }
 
 
-internal inline void
+internal _inline_ void
 v4SetAndNorm(v4* const result, r32 x, r32 y, r32 z, r32 w)
 {
     assert(result);
@@ -453,7 +464,7 @@ v4SetAndNorm(v4* const result, r32 x, r32 y, r32 z, r32 w)
 }
 
 
-internal inline void
+internal _inline_ void
 v4Add(v4* const a, v4* const b, v4* const result)
 {
     assert(a && b && result);
@@ -464,7 +475,7 @@ v4Add(v4* const a, v4* const b, v4* const result)
 }
 
 
-internal inline void
+internal _inline_ void
 v4Sub(v4* const a, v4* const b, v4* const result)
 {
     assert(a && b && result);
@@ -475,7 +486,7 @@ v4Sub(v4* const a, v4* const b, v4* const result)
 }
 
 
-internal inline void
+internal _inline_ void
 v4ScalarMul(v4* const a, r32 scalar, v4* const result)
 {
     assert(a && result);
@@ -486,7 +497,7 @@ v4ScalarMul(v4* const a, r32 scalar, v4* const result)
 }
 
 
-internal inline r32
+internal _inline_ r32
 v4Dot(v4* const a, v4* const b)
 {
     assert(a && b);
@@ -540,7 +551,7 @@ m3Ident(m3* const result)
 }
 
 
-internal inline void
+internal _inline_ void
 m3Mult(m3* const a, m3* const b, m3* const result)
 {
     assert(a && b && result);
@@ -599,7 +610,7 @@ m4Ident(m4* const result)
 }
 
 
-internal inline void
+internal _inline_ void
 m4Mult(m4* const a, m4* const b, m4* const result)
 {
     assert(a && b && result);
@@ -620,13 +631,13 @@ m4Mult(m4* const a, m4* const b, m4* const result)
 //
 // Intersection Calcultions
 //
-internal inline bool
+internal _inline_ bool
 DoesIntersectSphere(Ray* const ray,
                     Sphere* const sphere,
                     r32* const distance)
 {
     assert(ray && sphere);
-    bool ret = false;
+    bool does_intersect = false;
 
     // Quadratic
     r32 sphere_radius_sq = sphere->radius * sphere->radius;
@@ -639,14 +650,14 @@ DoesIntersectSphere(Ray* const ray,
     r32 b = 2.0f * (v3Dot(&ray->direction, &ray_to_sphere));
     r32 c = v3Dot(&ray_to_sphere, &ray_to_sphere) - sphere_radius_sq;
     r32 discriminant = (b * b) - (4.0f * a * c);
-    assert(c > 0);
+    assert(c >= 0);
 
     if (discriminant >= 0)
     {
-        ret = true;
+        does_intersect = true;
     }
 
-    if(distance && ret)
+    if(distance && does_intersect)
     {
         r32 dist_a = ((b * -1.0f) + (r32)sqrt(discriminant)) / (2.0f * a);
         r32 dist_b = ((b * -1.0f) - (r32)sqrt(discriminant)) / (2.0f * a);
@@ -656,7 +667,7 @@ DoesIntersectSphere(Ray* const ray,
         *distance = dist;
     }
 
-    return ret;
+    return does_intersect;
 }
 
 

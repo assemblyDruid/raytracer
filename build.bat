@@ -13,17 +13,17 @@
 rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall" %APP_ARCH% >nul
 
 :: VS 2017 Professional Edition
-rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build\vcvarsall" %APP_ARCH%
+IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build\vcvarsall" %APP_ARCH% >nul
 
 :: VS 2017 Enterprise Edition
 rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall" %APP_ARCH% >nul
 
 :: VS 2019 Community Edition
-IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64 >nul
+rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64 >nul
 
 :: VS 2019 Enterprise Edition
-rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %APP_ARCH%
-rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall" %APP_ARCH% %APP_SDK_VER% >nul
+rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %APP_ARCH% >nul
+
 
 :: Fix on some development machines with complicated VS SDK setups
 rem SET ERRORLEVEL=0
@@ -56,6 +56,12 @@ rem )
 :: Compile & Link
 ::
 
+:: /TC                  Compile as C code.
+:: /TP                  Compile as C++ code.
+:: /Oi                  Enable intrinsic functions.
+:: /Qpar                Enable parallel code generation.
+:: /Ot                  Favor fast code (over small code).
+:: /Ob2                 Enable full inline expansion. [ cfarvin::NOTE ] Debugging impact.
 :: /Z7	                Full symbolic debug info. No pdb. (See /Zi, /Zl).
 :: /GS	                Detect buffer overruns.
 :: /MD	                Multi-thread specific, DLL-specific runtime lib. (See /MDd, /MT, /MTd, /LD, /LDd).
@@ -66,11 +72,11 @@ rem )
 :: /NXCOMPAT            Comply with Windows Data Execution Prevention.
 :: /MACHINE:<arg>       Declare machine arch (should match vcvarsall env setting).
 :: /NODEFAULTLIB:<arg>  Ignore a library.
-:: /LIBPATH:<arg>       Specify library directory/directories
+:: /LIBPATH:<arg>       Specify library directory/directories.
 IF %ERRORLEVEL% NEQ 0 GOTO :exit
 mkdir msvc_landfill >nul 2>nul
 pushd msvc_landfill >nul
-cl %SCRIPT_DIR%\\%APP_NAME%.c /std:c++latest /W4 /WX /Z7 /GL /GS /MD /EHsc /nologo ^
+cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Oi /W4 /WX /Z7 /GL /GS /MD /EHsc /nologo ^
 /I"%SCRIPT_DIR%" ^
 /link /SUBSYSTEM:CONSOLE /NXCOMPAT /MACHINE:x64 /NODEFAULTLIB:MSVCRTD ^
 User32.Lib shell32.lib odbccp32.lib && ^
