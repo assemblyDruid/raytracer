@@ -19,7 +19,7 @@ IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\
 rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall" %APP_ARCH% >nul
 
 :: VS 2019 Community Edition
-rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64 >nul
+rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" %APP_ARCH% >nul
 
 :: VS 2019 Enterprise Edition
 rem IF %ERRORLEVEL% NEQ 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %APP_ARCH% >nul
@@ -77,7 +77,7 @@ rem )
 IF %ERRORLEVEL% NEQ 0 GOTO :exit
 mkdir msvc_landfill >nul 2>nul
 pushd msvc_landfill >nul
-cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Oi /W4 /WX /02 /GL /MD /EHsc /nologo ^
+cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Oi /W4 /WX /O2 /GL /MD /EHsc /nologo ^
 /I"%SCRIPT_DIR%" ^
 /link /SUBSYSTEM:CONSOLE /NXCOMPAT /MACHINE:x64 /NODEFAULTLIB:MSVCRTD ^
 User32.Lib shell32.lib odbccp32.lib && ^
