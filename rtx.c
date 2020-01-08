@@ -10,12 +10,12 @@
 // Image Properties
 //
 // Square
-#define IMAGE_WIDTH  400
-#define IMAGE_HEIGHT 400
+/* #define IMAGE_WIDTH  400 */
+/* #define IMAGE_HEIGHT 400 */
 
 // 720p
-/* #define IMAGE_WIDTH  1280 */
-/* #define IMAGE_HEIGHT 720 */
+#define IMAGE_WIDTH  1280
+#define IMAGE_HEIGHT 720
 
 // Full HD
 /* #define IMAGE_WIDTH  1920 */
@@ -76,7 +76,7 @@ main(int argc, char** argv)
 
     size_t  num_spheres = 0;
     Sphere sphere_arr[3] = {0};
-    sphere_arr[0] = CreateSphereRaw(-0.00f,
+    sphere_arr[0] = CreateSphereRaw(-0.50f,
                                     -0.00f,
                                     -1.00f,
                                     +0.35f, // Radius
@@ -109,8 +109,8 @@ main(int argc, char** argv)
             r32 blue = 0;
             HITSpp = 0;
 
-            for (u8 aa_ray = 0; aa_ray < RAYSpp; aa_ray++) // Antialiasing (rays per pixel)
-            {
+            /* for (u8 aa_ray = 0; aa_ray < RAYSpp; aa_ray++) // Antialiasing (rays per pixel) */
+            /* { */
                 ray.direction.x = ((pix_x/(r32)IMAGE_WIDTH) - 0.5f + NormalBoundedXorShift32()) * aspect_ratio;
                 ray.direction.y = (pix_y/(r32)IMAGE_HEIGHT) - 0.5f + NormalBoundedXorShift32();
                 v3Norm(&ray.direction);
@@ -128,7 +128,7 @@ main(int argc, char** argv)
                         HITSpp++;
                     }
                 }
-            }
+            /* } */
 
             r32 hit_ratio  = HITSpp/(r32)RAYSpp;
             r32 miss_ratio = (RAYSpp - HITSpp)/(r32)RAYSpp;
