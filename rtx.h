@@ -2,29 +2,31 @@
 #define __RTX_H___
 
 //
-// Release/Debug Macros
+// Macros
 //
 #ifndef ON
 #define ON 1
 #endif // _ON_
+
 #ifndef OFF
 #define OFF 0
 #endif // _OFF_
+
+#define __RTX_AA__    ON
 #define __RTX_DEBUG__ ON
-#ifdef __RTX_DEBUG__
-#define _inline_ /* INLINE REMOVED */
-#define _internal_ /* STATIC REMOVED */
+
+#ifdef  __RTX_DEBUG__
+#define _inline_    /* INLINE REMOVED */
+#define _internal_  /* STATIC REMOVED */
+#define _run_tests_ /* TESTS  REMOVED */
 #define Assert assert
 #else
-#define _inline_ inline
-#define _internal_ static
-#define Assert   /* ASSERTION REMOVED */
+#define _inline_    inline
+#define _internal_  static
+#define _run_tests_ TestMaths()
+#define Assert     /* ASSERTION REMOVED */
 #endif // ifdef __RTX_DEBUG__
 
-
-//
-// Endianness Macros
-//
 #ifndef __LSB__
 #define __LSB__ 1 // 1=LSB/Little Endian, 0=MSB/Big Endian
 #if __LSB__
@@ -34,16 +36,18 @@
 #endif // __LSB__ (if)
 #endif // __LSB__ (ifndef)
 
+#define TOLERANCE   0.00001f
+#define _PI_        3.14159f
+#define MAX_RAY_MAG 5.0f
+#define MIN_RAY_MAG 0.0f
 
-#define TOLERANCE 0.00001f
-#define _PI_      3.14159f
-#define MAX_RAY_DIST 5.0f
-#define MIN_RAY_DIST 0.0f
+#define CLAMP_MAX(value, max) if(value>max){value=max;}
+#define CLAMP_MIN(value, min) if(value<min){value=min;}
 
+#include <math.h> // [ cfarvin::TODO ] [ cfarvin::REMOVE ]
 #include <float.h>
 #include <assert.h>
 #include <stdint.h>
-#include <math.h> // [ cfarvin::TODO ] [ cfarvin::REMOVE ]
 
 
 //
@@ -66,6 +70,7 @@ typedef enum
     false = 0,
     true = 1
 } bool;
+
 
 #pragma pack(push, 1)
 typedef struct
@@ -170,9 +175,9 @@ typedef struct
 
 typedef struct
 {
-    r32  distance;
-    v3 position;
-    v3 normal_vector;
+    r32  magnitude;
+    v3   position;
+    v3   normal_vector;
 } RayCollision;
 
 
@@ -210,10 +215,21 @@ typedef struct
 } Sphere;
 
 
-static u32 XorShift32State;
 //
 // Methods
 //
+_internal_ _inline_ bool
+IsWithinTolerance(r32 value, r32 target_value)
+{
+    r32 min = value - TOLERANCE;
+    r32 max = value + TOLERANCE;
+    return((target_value >= min) && (target_value <= max));
+}
+
+
+// Note: XorShift32State must be initialized to some value
+//       before using XorShift32()
+static u32 XorShift32State;
 _internal_ _inline_ u32
 XorShift32()
 {
@@ -226,6 +242,8 @@ XorShift32()
 }
 
 
+// Note: XorShift32State must be initialized to some value
+//       before using NormalBoundedXorShift32()
 _internal_ _inline_ r32
 NormalBoundedXorShift32()
 {
@@ -237,8 +255,19 @@ NormalBoundedXorShift32()
 _internal_ _inline_ r32
 NormalRayDistLerp(r32 old_value)
 {
-    Assert(MAX_RAY_DIST > MIN_RAY_DIST);
-    return ((old_value - MIN_RAY_DIST) * (1.0f / FLT_MAX));
+    Assert(MAX_RAY_MAG > MIN_RAY_MAG);
+    return ((old_value - MIN_RAY_MAG) * (1.0f / FLT_MAX));
+}
+
+_internal_ _inline_ u8
+BindValueTo8BitColorChannel(r32 value_min,
+                            r32 value_max,
+                            r32 value)
+{
+    Assert(value_max > value_min);
+    Assert((value_max >= value) && (value_min <= value));
+    return (u8)(((value - value_min)/(value_max - value_min))
+                * (255.0f));
 }
 
 
@@ -258,49 +287,65 @@ RadiansToDegrees(r32 radians)
 }
 
 
-_internal_ Sphere
-CreateSphere(v3* const position,
-             r32 radius,
-             Material* const material,
-             size_t* const sphere_count_to_update)
+_internal_ void*
+CreatePixelArray(size_t image_width,
+                 size_t image_height,
+                 size_t bit_depth)
 {
-    Sphere sphere = {0};
-    sphere.position = *position;
-    sphere.radius = radius;
-    sphere.material = *material;
-
-    if (sphere_count_to_update)
-    {
-        (*sphere_count_to_update)++;
-    }
-
-    return sphere;
+    return calloc((image_width*image_height),
+                  (bit_depth * sizeof(u8)));
 }
 
 
-_internal_ Sphere
-CreateSphereRaw(r32 xpos,
-                r32 ypos,
-                r32 zpos,
-                r32 radius,
-                u32 color,
-                size_t* const sphere_count_to_update)
+_internal_ Sphere*
+CreateSpheres(size_t sphere_count)
 {
-    Sphere sphere = {0};
-    sphere.position.x = xpos;
-    sphere.position.y = ypos;
-    sphere.position.z = zpos;
-    sphere.radius = radius;
-    sphere.material.color.value = color;
-
-    if (sphere_count_to_update)
-    {
-        (*sphere_count_to_update)++;
-    }
-
-    return sphere;
+    return (Sphere*)calloc(sphere_count, sizeof(Sphere));
 }
 
+
+/* _internal_ Sphere */
+/* CreateSphere(v3*       const position, */
+/*              r32             radius, */
+/*              Material* const material, */
+/*              size_t*   const sphere_count_to_update) */
+/* { */
+/*     Sphere sphere = { 0 }; */
+/*     sphere.position = *position; */
+/*     sphere.radius = radius; */
+/*     sphere.material = *material; */
+
+/*     if (sphere_count_to_update) */
+/*     { */
+/*         (*sphere_count_to_update)++; */
+/*     } */
+
+/*     return sphere; */
+/* } */
+
+
+/* _internal_ Sphere */
+/* CreateSphereRaw(r32 xpos, */
+/*                 r32 ypos, */
+/*                 r32 zpos, */
+/*                 r32 radius, */
+/*                 u32 color, */
+/*                 size_t* const sphere_count_to_update) */
+/* { */
+/*     Sphere sphere = { 0 }; */
+/*     sphere.position.x = xpos; */
+/*     sphere.position.y = ypos; */
+/*     sphere.position.z = zpos; */
+/*     sphere.radius = radius; */
+/*     sphere.material.color.value = color; */
+
+/*     if (sphere_count_to_update) */
+/*     { */
+/*         (*sphere_count_to_update)++; */
+/*     } */
+
+/*     return sphere; */
+/* } */
 
 
 /* typedef struct */
@@ -309,20 +354,6 @@ CreateSphereRaw(r32 xpos,
 /*     r32      length; */
 /*     Material material; */
 /* } Cube; */
-
-
-_internal_ _inline_ bool
-IsWithinTolerance(r32 value, r32 target_value)
-{
-    r32 min = value - TOLERANCE;
-    r32 max = value + TOLERANCE;
-    if ((target_value >= min) && (target_value <= max))
-    {
-        return true;
-    }
-
-    return false;
-}
 
 
 //
@@ -363,11 +394,7 @@ v3Mag(v3* const a)
 _internal_ _inline_ bool
 v3IsNorm(v3* const a)
 {
-    if (IsWithinTolerance(v3Mag(a), 1.0f))
-    {
-        return true;
-    }
-    return false;
+    return(IsWithinTolerance(v3Mag(a), 1.0f));
 }
 
 
@@ -384,7 +411,7 @@ v3Norm(v3* const a)
     }
     else
     {
-        Assert(false);
+        /* Assert(false); */ // [ cfarvin::UNDO ]
         v3Set(a, 0.0f, 0.0f, 0.0f);
     }
 }
@@ -504,11 +531,7 @@ v4Mag(v4* const a)
 _internal_ _inline_ bool
 v4IsNorm(v4* const a)
 {
-    if (IsWithinTolerance(v4Mag(a), 1.0f))
-    {
-        return true;
-    }
-    return false;
+    return(IsWithinTolerance(v4Mag(a), 1.0f));
 }
 
 
@@ -712,23 +735,23 @@ m4Mult(m4* const a, m4* const b, m4* const result)
 // Intersection Calcultions
 //
 _internal_ _inline_ void
-SetRayCollisionSphere(Ray* const ray,
-                      Sphere* const sphere,
-                      RayCollision* const collision,
-                      const r32 distance)
+SetSphereCollision(Ray*          const ray,
+                   Sphere*       const sphere,
+                   RayCollision* const collision,
+                   const r32           magnitude)
 {
-    collision->distance = distance;
+    collision->magnitude = magnitude;
     v3Set(&collision->position,
-          ray->origin.x + (distance*ray->direction.x),
-          ray->origin.y + (distance*ray->direction.y),
-          ray->origin.z + (distance*ray->direction.z));
+          ray->origin.x + (magnitude*ray->direction.x),
+          ray->origin.y + (magnitude*ray->direction.y),
+          ray->origin.z + (magnitude*ray->direction.z));
     v3Sub(&sphere->position,
           &collision->position,
           &collision->normal_vector);
 
     // Correct normal vector direction if needed.
     // We seek the normal opposite the direction of the ray.
-    if (sphere->radius > distance)
+    if (sphere->radius > magnitude)
     {
         v3ScalarMul(&collision->normal_vector,
                     -1.0f,
@@ -739,16 +762,16 @@ SetRayCollisionSphere(Ray* const ray,
 }
 
 _internal_ _inline_ bool
-DoesIntersectSphere(Ray* const ray,
-                    Sphere* const sphere,
-                    RayCollision* const collision)
+DoesIntersectSphere(Ray*          const ray,
+                    Sphere*       const sphere,
+                    RayCollision* const collision_ptr)
 {
     Assert(ray && sphere);
     Assert(v3IsNorm(&ray->direction));
 
     // Quadratic
     r32 sphere_radius_sq = sphere->radius * sphere->radius;
-    v3 ray_to_sphere = {0};
+    v3 ray_to_sphere = { 0 };
     v3Sub(&ray->origin, &sphere->position, &ray_to_sphere);
 
     r32 ray_dir_mag = v3Mag(&ray->direction);
@@ -756,44 +779,51 @@ DoesIntersectSphere(Ray* const ray,
     r32 b = 2.0f * (v3Dot(&ray->direction, &ray_to_sphere));
     r32 c = v3Dot(&ray_to_sphere, &ray_to_sphere) - sphere_radius_sq;
     r32 discriminant = (b * b) - (4.0f * a * c);
-    /* Assert(c > 0); */
+    Assert(c > 0);
 
-    // Do not compute collision unless by user requests by providing
-    // collision pointer.
-    if ((discriminant >= 0) && collision)
+    // Return value
+    bool does_collide = discriminant >= 0;
+
+    // Compute collision only if user provides collision pointer.
+    if (does_collide && collision_ptr)
     {
-        r32 tmp_dist = ((b * -1.0f) - (r32)sqrt(discriminant)) / (2.0f * a);
-        if ((tmp_dist <= MAX_RAY_DIST) && (tmp_dist >= MIN_RAY_DIST))
+        r32 tmp_dist = ((b * -1.0f) - (r32)sqrt(discriminant))
+            / (2.0f * a);
+        if ((tmp_dist <= MAX_RAY_MAG) && (tmp_dist >= MIN_RAY_MAG))
         {
-            SetRayCollisionSphere(ray, sphere, collision, tmp_dist);
-            return true;
+            SetSphereCollision(ray,
+                               sphere,
+                               collision_ptr,
+                               tmp_dist);
         }
 
-        tmp_dist = ((b * -1.0f) + (r32)sqrt(discriminant)) / (2.0f * a);
-        if ((tmp_dist <= MAX_RAY_DIST) && (tmp_dist >= MIN_RAY_DIST))
+        tmp_dist = ((b * -1.0f) + (r32)sqrt(discriminant))
+            / (2.0f * a);
+        if ((tmp_dist <= MAX_RAY_MAG) && (tmp_dist >= MIN_RAY_MAG))
         {
-            SetRayCollisionSphere(ray, sphere, collision, tmp_dist);
-            return true;
+            SetSphereCollision(ray,
+                               sphere,
+                               collision_ptr,
+                               tmp_dist);
         }
     }
 
-    return false;
+    return does_collide;
 }
 
 
 //
 // Tests
 //
-#ifdef __RTX_DEBUG__
-_internal_ void
-BasicMathsTest()
+void
+TestMaths()
 {
     //
     // v3 Tests
     //
-    v3 v3A = {0};
-    v3 v3B = {0};
-    v3 v3Result = {0};
+    v3 v3A = { 0 };
+    v3 v3B = { 0 };
+    v3 v3Result = { 0 };
 
     // v3Add()
     v3Set(&v3A, 1.0f, 1.0f, 1.0f);
@@ -855,9 +885,9 @@ BasicMathsTest()
     //
     // v4 Tests
     //
-    v4 v4A = {0};
-    v4 v4B = {0};
-    v4 v4Result = {0};
+    v4 v4A = { 0 };
+    v4 v4B = { 0 };
+    v4 v4Result = { 0 };
 
     // v4Add()
     v4Set(&v4A, 1.0f, 1.0f, 1.0f, 1.0f);
@@ -923,8 +953,8 @@ BasicMathsTest()
     //
     // m3 Tests
     //
-    m3 m3A = {0};
-    m3 m3Result = {0};
+    m3 m3A = { 0 };
+    m3 m3Result = { 0 };
 
     // m3Ident()
     m3Ident(&m3A);
@@ -972,7 +1002,7 @@ BasicMathsTest()
 
     // m3Mult()
     m3Ident(&m3A);
-    m3 m3B = {0};
+    m3 m3B = { 0 };
     m3Mult(&m3A, &m3B, &m3Result);
     sum = 0;
     for (uint8_t idx = 0; idx < 9; idx++)
@@ -999,8 +1029,8 @@ BasicMathsTest()
     //
     // m4 Tests
     //
-    m4 m4A = {0};
-    m4 m4Result = {0};
+    m4 m4A = { 0 };
+    m4 m4Result = { 0 };
 
     // m4Ident()
     m4Ident(&m4A);
@@ -1051,7 +1081,7 @@ BasicMathsTest()
 
     // m4Mult()
     m4Ident(&m4A);
-    m4 m4B = {0};
+    m4 m4B = { 0 };
     m4Mult(&m4A, &m4B, &m4Result);
     sum = 0;
     for (uint8_t idx = 0; idx < 16; idx++)
@@ -1077,16 +1107,24 @@ BasicMathsTest()
     Assert(v4IsEqual(&m4Result.row.k, &v4Result));
     v4Set(&v4Result, 1860, 2250, 2640, 2980);
     Assert(v4IsEqual(&m4Result.row.n, &v4Result));
-}
-#else
-void
-BasicMathsTest()
-{
-    // Tests removed
-    return;
-}
-#endif // __RTX_DEBUG__
 
+
+    //
+    // XorShift32 Tests
+    //
+    u32 PrevXorState = XorShift32State;
+    XorShift32State = 42;
+    r32 rand = 0;
+    for (size_t iter = 0; iter < 10000; iter++)
+    {
+        rand = NormalBoundedXorShift32();
+        Assert(rand >= 0);
+        Assert(rand <= 1);
+    }
+
+    // Reset XorShift32State
+    XorShift32State = PrevXorState;
+}
 
 
 #endif // __RTX_H__
