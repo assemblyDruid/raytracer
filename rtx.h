@@ -12,7 +12,7 @@
 #define OFF 0
 #endif // _OFF_
 
-#define __RTX_AA__    ON
+#define __RTX_AA__    OFF
 #define __RTX_DEBUG__ ON
 
 #ifdef  __RTX_DEBUG__
@@ -774,7 +774,14 @@ DoesIntersectSphere(Ray*          const ray,
     v3 ray_to_sphere = { 0 };
     v3Sub(&ray->origin, &sphere->position, &ray_to_sphere);
 
+    // Ray magnitude must fall within boundaries
     r32 ray_dir_mag = v3Mag(&ray->direction);
+    if(!(ray_dir_mag >= MIN_RAY_MAG &&
+         ray_dir_mag <= MAX_RAY_MAG))
+    {
+        return false;
+    }
+
     r32 a = ray_dir_mag * ray_dir_mag;
     r32 b = 2.0f * (v3Dot(&ray->direction, &ray_to_sphere));
     r32 c = v3Dot(&ray_to_sphere, &ray_to_sphere) - sphere_radius_sq;

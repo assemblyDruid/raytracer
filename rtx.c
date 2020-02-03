@@ -92,31 +92,57 @@ Log()
 }
 
 
-// [ cfarvin::TODO ] Validation checks on this function
-_internal_ _inline_ bool
+_internal_ _inline_ void
 TraceSpheres(Ray*          const ray,
              RayCollision* const collision,
+             r32*          const collision_mag_threshold,
+             bool*         const does_intersect,
+             Color32*      const return_color,
              Sphere*       const sphere_arr,
-             const size_t        num_spheres,
-             Color32*      const pixel_color,
-             r32*          const collision_mag_threshold)
+             const size_t        num_spheres)
 {
-    bool does_intersect = false;
+    Assert(ray);
+    Assert(collision);
+    Assert(does_intersect);
+    Assert(return_color);
+    Assert(sphere_arr);
+    Assert(collision_mag_threshold);
+    Assert(*collision_mag_threshold >= 0);
+    Assert(num_spheres >= 0);
+
+    *does_intersect = false;
     for (size_t sphere_index = 0; sphere_index < num_spheres; sphere_index++)
     {
 
         if (DoesIntersectSphere(ray, &sphere_arr[sphere_index], collision)
             && (collision->magnitude < *collision_mag_threshold))
         {
-            does_intersect = true;
+            *does_intersect = true;
             *collision_mag_threshold = collision->magnitude;
-            pixel_color->channel.R = BindValueTo8BitColorChannel(MIN_RAY_MAG,
-                                                                 MAX_RAY_MAG,
-                                                                 collision->magnitude);
+            // [ cfarvin::NOTE ] [ cfarvin::DEBUG ] Temporairly shade by depth.
+            /* u8 color = BindValueTo8BitColorChannel(MIN_RAY_MAG, */
+            /*                                        MAX_RAY_MAG, */
+            /*                                        collision->magnitude); */
+            /* return_color->channel.R = return_color->channel.G = return_color->channel.B = color; */
+            return_color->value = sphere_arr[sphere_index].material.color.value;
         }
     }
+}
 
-    return does_intersect;
+_internal_ _inline_ void
+DetermineBackgroundColor(size_t pix_x,
+                         size_t pix_y,
+                         Color32* const return_color)
+{
+    Assert(pix_x >= 0);
+    Assert(pix_y >= 0);
+    Assert(return_color);
+
+    // Grey Downward Gradient
+    return_color->channel.R = return_color->channel.G = return_color->channel.B =
+        BindValueTo8BitColorChannel(0.0f,
+                                    (r32)IMAGE_HEIGHT,
+                                    (r32)pix_y);
 }
 
 
@@ -149,20 +175,23 @@ main(int argc, char** argv)
     sphere_arr[0].position.y = -0.00f;
     sphere_arr[0].position.z = -1.00f;
     sphere_arr[0].radius     = +0.35f;
+    sphere_arr[0].material.color.value = 0xFFFF0000;
 
     sphere_arr[1].position.x = -0.40f;
     sphere_arr[1].position.y = -0.75f;
     sphere_arr[1].position.z = -1.75f;
     sphere_arr[1].radius     = +0.35f;
+    sphere_arr[0].material.color.value = 0xFF00FF00;
 
 #if __RTX_AA__
-    size_t  aa_rays_per_pixel = 100;
-    Color32 aa_pixel_color    = { 0 };
+    size_t  aa_rays_per_pixel      = 15;
+    r32 aa_pixel_color_accumulator = 0.0f;
 #endif // __RTX_AA_
 
     // Init loop defaults
     RayCollision collision               = { 0 };
     Color32      pixel_color             = { 0 };
+    Color32      returned_pixel_color    = { 0 };
     size_t       pixel_array_idx         = 0;
     r32          collision_mag_threshold = (r32)MAX_RAY_MAG;
     bool         collided                = false;
@@ -175,67 +204,75 @@ main(int argc, char** argv)
     {
         for (size_t pix_x = 0; pix_x < IMAGE_WIDTH; pix_x++)
         {
-            pixel_color.value  = 0xFF202020;            // Reset pixel color
-            collision_mag_threshold = (r32)MAX_RAY_MAG; // Reset ray distance
-
-            ray.direction.x = ((pix_x/(r32)IMAGE_WIDTH) - 0.5f ) * ASPECT_RATIO;
-            ray.direction.y = (pix_y/(r32)IMAGE_HEIGHT) - 0.5f;
-
-            v3Norm(&ray.direction);
-            collided = TraceSpheres(&ray,
-                                    &collision,
-                                    sphere_arr,
-                                    num_spheres,
-                                    &pixel_color,
-                                    &collision_mag_threshold);
+            collision_mag_threshold = (r32)MAX_RAY_MAG;           // Reset ray distance
+            DetermineBackgroundColor(pix_x, pix_y, &pixel_color); // Reset pixel color
+            DetermineBackgroundColor(pix_x, pix_y, &returned_pixel_color); // Reset pixel color
 
 //
 #if __RTX_AA__
 //
-            if (collided && collision.magnitude < collision_mag_threshold)
+
+            aa_pixel_color_accumulator = 0; // Reset AA accumulator
+            for (size_t aa_ray = 0; aa_ray < aa_rays_per_pixel; aa_ray++)
             {
-                bool aa_collided = false;
-                /* r32 aa_pixel_color_accumulator = 0; */
-                r32 aa_pixel_color_accumulator = pixel_color.channel.R;
-                for (size_t aa_ray = 0; aa_ray < aa_rays_per_pixel; aa_ray++)
+                ray.direction.x = (((pix_x + NormalBoundedXorShift32())/(r32)IMAGE_WIDTH) - 0.5f ) * ASPECT_RATIO;
+                ray.direction.y = ((pix_y + NormalBoundedXorShift32())/(r32)IMAGE_HEIGHT) - 0.5f;
+
+                v3Norm(&ray.direction);
+                TraceSpheres(&ray,
+                             &collision,
+                             &collision_mag_threshold,
+                             &collided,
+                             &returned_pixel_color,
+                             sphere_arr,
+                             num_spheres);
+
+                if (collided)
                 {
-
-                    ray.direction.x += NormalBoundedXorShift32();
-                    ray.direction.y += NormalBoundedXorShift32();
-
-                    v3Norm(&ray.direction);
-                    aa_collided = TraceSpheres(&ray,
-                                               &collision,
-                                               sphere_arr,
-                                               num_spheres,
-                                               &aa_pixel_color,
-                                               &collision_mag_threshold);
-
-                    if (aa_collided && (collision.magnitude > collision_mag_threshold))
-                    {
-                        collision_mag_threshold = collision.magnitude;
-                        aa_pixel_color_accumulator += BindValueTo8BitColorChannel(MIN_RAY_MAG,
-                                                                                  MAX_RAY_MAG,
-                                                                                  collision.magnitude);
-                    }
-                    else
-                    {
-                        aa_pixel_color_accumulator += pixel_color.channel.R;
-                    }
+                    /* aa_pixel_color_accumulator += returned_pixel_color.channel.R; */
+                    aa_pixel_color_accumulator += returned_pixel_color.value;
+                }
+                else
+                {
+                    /* aa_pixel_color_accumulator += pixel_color.channel.R; */
+                    aa_pixel_color_accumulator += pixel_color.value;
                 }
 
-                pixel_color.channel.R = (u8)(aa_pixel_color_accumulator/(r32)aa_rays_per_pixel);
             }
+
+            // Monocolor
+            /* pixel_color.channel.R = (u8)(aa_pixel_color_accumulator/(r32)aa_rays_per_pixel); */
+            /* pixel_color.channel.G = pixel_color.channel.R; */
+            /* pixel_color.channel.B = pixel_color.channel.R; */
+
+            // Color32
+            pixel_color.value = (u32)(aa_pixel_color_accumulator/(r32)aa_rays_per_pixel);
 //
 #else // __RTX_AA__
 //
-            if (collided && (collision.magnitude < collision_mag_threshold))
+            ray.direction.x = ((pix_x/(r32)IMAGE_WIDTH) - 0.5f ) * ASPECT_RATIO;
+            ray.direction.y = (pix_y/(r32)IMAGE_HEIGHT) - 0.5f;
+
+            v3Norm(&ray.direction);
+            TraceSpheres(&ray,
+                         &collision,
+                         &collision_mag_threshold,
+                         &collided,
+                         &returned_pixel_color,
+                         sphere_arr,
+                         num_spheres);
+
+            if (collided)
             {
-                collision_mag_threshold = collision.magnitude;
-                pixel_color.channel.R = BindValueTo8BitColorChannel(MIN_RAY_MAG,
-                                                                    MAX_RAY_MAG,
-                                                                    collision.magnitude);
+                // Monocolor
+                /* pixel_color.channel.R = returned_pixel_color.channel.R; */
+                /* pixel_color.channel.G = pixel_color.channel.R; */
+                /* pixel_color.channel.B = pixel_color.channel.R; */
+
+                // Color32
+                pixel_color.value = returned_pixel_color.value;
             }
+
 //
 #endif // __RTX_AA__
 //
