@@ -27,13 +27,53 @@
 
 #define ASPECT_RATIO  (r32)(IMAGE_WIDTH/(r32)IMAGE_HEIGHT)
 #define NUM_PIXELS    IMAGE_WIDTH*IMAGE_HEIGHT
-#define IMAGE_NAME    "rtx.bmp"
+
+_internal_ void
+WritePPM(u32* const      pixel_array,
+         u32             image_width,
+         u32             image_height,
+         const u8* const image_name)
+{
+    Assert(pixel_array && image_width && image_height);
+
+    FILE* ppm_file = fopen(IMAGE_NAME, "w");
+    Assert(ppm_file);
+
+    u8* ppm_header;
+    u32 success = snprintf(ppm_header, MAX_PPM_HEADER_SIZE,
+                           "P3\n%d %d\n255\n",
+                           image_width,
+                           image_height);
+    Assert(success > 0 && success < MAX_PPM_HEADER_SIZE);
+
+    u8* ppm_image_data = calloc(MAX_PPM_RGB_TRIPPLET_SIZE * NUM_PIXELS,
+                                sizeof(u8));
+    Assert(ppm_image_data);
+
+    u8 chars_last_written = 0;
+    u8 rgb_tripplet[MAX_PPM_RGB_TRIPPLET_SIZE];
+    for (size_t y = 0; y < image_height; y++)
+    {
+        for (size_t x = 0; x < image_width; x++)
+        {
+            chars_last_written = snprintf(rgb_tripplet,
+                                          "%d%d%d",
+                );
+        }
+    }
+
+    fclose(ppm_file);
+}
 
 
 _internal_ void
-WriteBitmap(u32* pixel_array, u32 image_width, u32 image_height)
+WriteBitmap(u32* const      pixel_array,
+            u32             image_width,
+            u32             image_height,
+            const u8* const image_name)
+
 {
-    assert(pixel_array && image_width && image_height);
+    Assert(pixel_array && image_width && image_height);
     u32 pixel_array_size = sizeof(u32) * NUM_PIXELS;
 
     BitmapHeader bitmap_header = { 0 };
@@ -48,10 +88,12 @@ WriteBitmap(u32* pixel_array, u32 image_width, u32 image_height)
     bitmap_header.pix_arr_size = pixel_array_size;
 
     FILE* bitmap_file = fopen(IMAGE_NAME, "wb");
-    assert(bitmap_file);
+    Assert(bitmap_file);
 
     fwrite(&bitmap_header, sizeof(BitmapHeader), 1, bitmap_file);
     fwrite(pixel_array,  pixel_array_size, 1, bitmap_file);
+
+    fclose(bitmap_file);
 }
 
 _internal_ void
@@ -60,35 +102,35 @@ Log()
     printf("\nRaytracing...\n");
     if (__RTX_DEBUG__)
     {
-        printf("RTX debug tooling is: ON\n");
+        printf("RTX debug tooling ON\n");
     }
     else
     {
-        printf("RTX debug tooling is: OFF\n");
+        printf("RTX debug tooling OFF\n");
     }
     if (__RTX_AA__)
     {
-        printf("Antialiasing is:      ON\n");
+        printf("Antialiasing:     ON\n");
     }
     else
     {
-        printf("Antialiasing is:      OFF\n");
+        printf("Antialiasing:     OFF\n");
     }
 
     if (__LSB__)
     {
-        printf("Compiled for:         LSB\n");
+        printf("Compiled for:     LSB\n");
     }
     else
     {
-        printf("Compiled for:         MSB\n");
+        printf("Compiled for:     MSB\n");
     }
 
-    printf("Tolerance set to:     %f\n", (r32)TOLERANCE);
-    printf("Maximum ray mag:      %f\n", (r32)MAX_RAY_MAG);
-    printf("Minimum ray mag:      %f\n", (r32)MIN_RAY_MAG);
-    printf("Image height:         %d\n", IMAGE_HEIGHT);
-    printf("Image width:          %d\n", IMAGE_WIDTH);
+    printf("Tolerance:        %f\n", (r32)TOLERANCE);
+    printf("Maximum ray mag:  %f\n", (r32)MAX_RAY_MAG);
+    printf("Minimum ray mag:  %f\n", (r32)MIN_RAY_MAG);
+    printf("Image height:     %d\n", IMAGE_HEIGHT);
+    printf("Image width:      %d\n", IMAGE_WIDTH);
 }
 
 
@@ -108,7 +150,6 @@ TraceSpheres(Ray*          const ray,
     Assert(sphere_arr);
     Assert(collision_mag_threshold);
     Assert(*collision_mag_threshold >= 0);
-    Assert(num_spheres >= 0);
 
     *does_intersect = false;
     for (size_t sphere_index = 0; sphere_index < num_spheres; sphere_index++)
@@ -119,11 +160,6 @@ TraceSpheres(Ray*          const ray,
         {
             *does_intersect = true;
             *collision_mag_threshold = collision->magnitude;
-            // [ cfarvin::NOTE ] [ cfarvin::DEBUG ] Temporairly shade by depth.
-            /* u8 color = BindValueTo8BitColorChannel(MIN_RAY_MAG, */
-            /*                                        MAX_RAY_MAG, */
-            /*                                        collision->magnitude); */
-            /* return_color->channel.R = return_color->channel.G = return_color->channel.B = color; */
             return_color->value = sphere_arr[sphere_index].material.color.value;
         }
     }
@@ -134,22 +170,21 @@ DetermineBackgroundColor(size_t pix_x,
                          size_t pix_y,
                          Color32* const return_color)
 {
-    Assert(pix_x >= 0);
-    Assert(pix_y >= 0);
+    if (pix_x) {} // [ cfarvin::TEMP ] Silence unused variable warning
     Assert(return_color);
 
-    // Grey Downward Gradient
-    return_color->channel.R = return_color->channel.G = return_color->channel.B =
-        BindValueTo8BitColorChannel(0.0f,
-                                    (r32)IMAGE_HEIGHT,
-                                    (r32)pix_y);
+    // Red Downward Gradient
+    return_color->value = 0;
+    return_color->channel.R = BindValueTo8BitColorChannel(0.0f,
+                                                          (r32)IMAGE_HEIGHT,
+                                                          (r32)pix_y);
 }
 
 
 int
 main(int argc, char** argv)
 {
-    if (argc || argv) {} // Silence unused variable warning
+    if (argc || argv) {} // [ cfarvin::TEMP ] Silence unused variable warning
 
     _run_tests_;
 
@@ -175,17 +210,17 @@ main(int argc, char** argv)
     sphere_arr[0].position.y = -0.00f;
     sphere_arr[0].position.z = -1.00f;
     sphere_arr[0].radius     = +0.35f;
-    sphere_arr[0].material.color.value = 0xFFFF0000;
+    sphere_arr[0].material.color.value = 0x000000FF;
 
     sphere_arr[1].position.x = -0.40f;
     sphere_arr[1].position.y = -0.75f;
     sphere_arr[1].position.z = -1.75f;
     sphere_arr[1].radius     = +0.35f;
-    sphere_arr[0].material.color.value = 0xFF00FF00;
+    sphere_arr[1].material.color.value = 0x0000FF00;
 
 #if __RTX_AA__
-    size_t  aa_rays_per_pixel      = 15;
-    r32 aa_pixel_color_accumulator = 0.0f;
+    size_t  aa_rays_per_pixel      = 5;
+    v3 aa_pixel_color_accumulator  = { 0 };
 #endif // __RTX_AA_
 
     // Init loop defaults
@@ -206,17 +241,15 @@ main(int argc, char** argv)
         {
             collision_mag_threshold = (r32)MAX_RAY_MAG;           // Reset ray distance
             DetermineBackgroundColor(pix_x, pix_y, &pixel_color); // Reset pixel color
-            DetermineBackgroundColor(pix_x, pix_y, &returned_pixel_color); // Reset pixel color
-
 //
 #if __RTX_AA__
 //
-
-            aa_pixel_color_accumulator = 0; // Reset AA accumulator
+            v3Set(&aa_pixel_color_accumulator, 0, 0, 0); // Reset AA accumulator
             for (size_t aa_ray = 0; aa_ray < aa_rays_per_pixel; aa_ray++)
             {
                 ray.direction.x = (((pix_x + NormalBoundedXorShift32())/(r32)IMAGE_WIDTH) - 0.5f ) * ASPECT_RATIO;
                 ray.direction.y = ((pix_y + NormalBoundedXorShift32())/(r32)IMAGE_HEIGHT) - 0.5f;
+                ray.direction.z = -1.0f;
 
                 v3Norm(&ray.direction);
                 TraceSpheres(&ray,
@@ -229,29 +262,28 @@ main(int argc, char** argv)
 
                 if (collided)
                 {
-                    /* aa_pixel_color_accumulator += returned_pixel_color.channel.R; */
-                    aa_pixel_color_accumulator += returned_pixel_color.value;
+                    aa_pixel_color_accumulator.x += returned_pixel_color.channel.R;
+                    aa_pixel_color_accumulator.y += returned_pixel_color.channel.G;
+                    aa_pixel_color_accumulator.z += returned_pixel_color.channel.B;
                 }
                 else
                 {
-                    /* aa_pixel_color_accumulator += pixel_color.channel.R; */
-                    aa_pixel_color_accumulator += pixel_color.value;
+                    aa_pixel_color_accumulator.x += pixel_color.channel.R;
+                    aa_pixel_color_accumulator.y += pixel_color.channel.G;
+                    aa_pixel_color_accumulator.z += pixel_color.channel.B;
                 }
 
             }
 
-            // Monocolor
-            /* pixel_color.channel.R = (u8)(aa_pixel_color_accumulator/(r32)aa_rays_per_pixel); */
-            /* pixel_color.channel.G = pixel_color.channel.R; */
-            /* pixel_color.channel.B = pixel_color.channel.R; */
-
-            // Color32
-            pixel_color.value = (u32)(aa_pixel_color_accumulator/(r32)aa_rays_per_pixel);
+            pixel_color.channel.R = aa_pixel_color_accumulator.x / aa_rays_per_pixel;
+            pixel_color.channel.G = aa_pixel_color_accumulator.y / aa_rays_per_pixel;
+            pixel_color.channel.B = aa_pixel_color_accumulator.z / aa_rays_per_pixel;
 //
 #else // __RTX_AA__
 //
             ray.direction.x = ((pix_x/(r32)IMAGE_WIDTH) - 0.5f ) * ASPECT_RATIO;
             ray.direction.y = (pix_y/(r32)IMAGE_HEIGHT) - 0.5f;
+            ray.direction.z = -1;
 
             v3Norm(&ray.direction);
             TraceSpheres(&ray,
@@ -264,24 +296,43 @@ main(int argc, char** argv)
 
             if (collided)
             {
-                // Monocolor
-                /* pixel_color.channel.R = returned_pixel_color.channel.R; */
-                /* pixel_color.channel.G = pixel_color.channel.R; */
-                /* pixel_color.channel.B = pixel_color.channel.R; */
-
-                // Color32
                 pixel_color.value = returned_pixel_color.value;
             }
 
 //
 #endif // __RTX_AA__
 //
+            if (pix_x <= 2) // [ cfarvin::DEBUG ] Show ray progression direction x
+            {
+                pixel_color.channel.R = pixel_color.channel.G = 0;
+                pixel_color.channel.B = ~BindValueTo8BitColorChannel(0.0f,
+                                                                     (r32)IMAGE_HEIGHT,
+                                                                     (r32)pix_y);
+            }
+
+            if (pix_y <= 2) // [ cfarvin::DEBUG ] Show ray progression direction y
+            {
+                pixel_color.channel.R = pixel_color.channel.B = 0;
+                pixel_color.channel.G = ~BindValueTo8BitColorChannel(0.0f,
+                                                                     (r32)IMAGE_WIDTH,
+                                                                     (r32)pix_x);
+
+            }
+
+            if (pix_x <= 2 && pix_y <= 2) // [ cfarvin::DEBUG ] Show ray progression direction
+            {
+                pixel_color.channel.G = pixel_color.channel.B = 0;
+                pixel_color.channel.R = 0xFF;
+            }
+
+
             pixel_array[pixel_array_idx] = pixel_color.value;
             pixel_array_idx++;
         }
     }
 
-    WriteBitmap(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT);
+    WriteBitmap(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rtx.bmp");
+    WritePPM(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rtx.bmp");
     printf("[ success ]\n");
     return 0;
 }

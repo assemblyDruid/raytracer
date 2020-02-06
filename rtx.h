@@ -12,7 +12,7 @@
 #define OFF 0
 #endif // _OFF_
 
-#define __RTX_AA__    OFF
+#define __RTX_AA__    ON
 #define __RTX_DEBUG__ ON
 
 #ifdef  __RTX_DEBUG__
@@ -24,7 +24,7 @@
 #define _inline_    inline
 #define _internal_  static
 #define _run_tests_ TestMaths()
-#define Assert     /* ASSERTION REMOVED */
+#define Assert      /* ASSERTION REMOVED */
 #endif // ifdef __RTX_DEBUG__
 
 #ifndef __LSB__
@@ -43,6 +43,8 @@
 
 #define CLAMP_MAX(value, max) if(value>max){value=max;}
 #define CLAMP_MIN(value, min) if(value<min){value=min;}
+#define MAX_PPM_HEADER_SIZE       25
+#define MAX_PPM_RGB_TRIPPLET_SIZE 9
 
 #include <math.h> // [ cfarvin::TODO ] [ cfarvin::REMOVE ]
 #include <float.h>
@@ -468,8 +470,6 @@ v3Dot(v3* const a, v3* const b)
     result += a->z * b->z;
     return result;
 }
-
-
 _internal_ _inline_ void
 v3Cross(v3* const a, v3* const b, v3* const result)
 {
@@ -794,24 +794,14 @@ DoesIntersectSphere(Ray*          const ray,
     // Compute collision only if user provides collision pointer.
     if (does_collide && collision_ptr)
     {
-        r32 tmp_dist = ((b * -1.0f) - (r32)sqrt(discriminant))
+        r32 tmp_dist_a = ((b * -1.0f) - (r32)sqrt(discriminant))
             / (2.0f * a);
-        if ((tmp_dist <= MAX_RAY_MAG) && (tmp_dist >= MIN_RAY_MAG))
+        if ((tmp_dist_a <= MAX_RAY_MAG) && (tmp_dist_a >= MIN_RAY_MAG))
         {
             SetSphereCollision(ray,
                                sphere,
                                collision_ptr,
-                               tmp_dist);
-        }
-
-        tmp_dist = ((b * -1.0f) + (r32)sqrt(discriminant))
-            / (2.0f * a);
-        if ((tmp_dist <= MAX_RAY_MAG) && (tmp_dist >= MIN_RAY_MAG))
-        {
-            SetSphereCollision(ray,
-                               sphere,
-                               collision_ptr,
-                               tmp_dist);
+                               tmp_dist_a);
         }
     }
 
