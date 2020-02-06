@@ -7,26 +7,26 @@
 #ifndef ON
 #define ON 1
 #endif // _ON_
-
 #ifndef OFF
 #define OFF 0
 #endif // _OFF_
 
+// Modes
 #define __RTX_AA__    ON
 #define __RTX_DEBUG__ ON
 
+// Debug
 #ifdef  __RTX_DEBUG__
 #define _inline_    /* INLINE REMOVED */
 #define _internal_  /* STATIC REMOVED */
-#define _run_tests_ /* TESTS  REMOVED */
 #define Assert assert
 #else
 #define _inline_    inline
 #define _internal_  static
-#define _run_tests_ TestMaths()
 #define Assert      /* ASSERTION REMOVED */
 #endif // ifdef __RTX_DEBUG__
 
+// Endianness
 #ifndef __LSB__
 #define __LSB__ 1 // 1=LSB/Little Endian, 0=MSB/Big Endian
 #if __LSB__
@@ -36,15 +36,16 @@
 #endif // __LSB__ (if)
 #endif // __LSB__ (ifndef)
 
-#define TOLERANCE   0.00001f
-#define _PI_        3.14159f
-#define MAX_RAY_MAG 5.0f
-#define MIN_RAY_MAG 0.0f
+// Min Max
+#define TOLERANCE             0.00001f
+#define _PI_                  3.14159f
+#define MAX_RAY_MAG           5.0f
+#define MIN_RAY_MAG           0.0f
+#define MAX_PPM_HEADER_SIZE   25
+#define MAX_PPM_TRIPPLET_SIZE 10
 
 #define CLAMP_MAX(value, max) if(value>max){value=max;}
 #define CLAMP_MIN(value, min) if(value<min){value=min;}
-#define MAX_PPM_HEADER_SIZE       25
-#define MAX_PPM_RGB_TRIPPLET_SIZE 9
 
 #include <math.h> // [ cfarvin::TODO ] [ cfarvin::REMOVE ]
 #include <float.h>
@@ -74,7 +75,7 @@ typedef enum
 } bool;
 
 
-#pragma pack(push, 1)
+#pragma pack( push, 1 )
 typedef struct
 {
     u16 magic_number;
@@ -95,12 +96,13 @@ typedef struct
     u32 num_colors_in_palete;
     u32 num_important_colors;
 } BitmapHeader;
-#pragma pack(pop)
+#pragma pack( pop )
 
 
 typedef union
 {
     // Little Endian Storage
+    // Access via "channel" macro
     struct
     {
         u8 A;
@@ -110,6 +112,7 @@ typedef union
     } MSB_channel;
 
     // Big Endian Storage
+    // Access via "channel" macro
     struct
     {
         u8 B;
@@ -122,23 +125,85 @@ typedef union
 } Color32;
 
 
-typedef struct
+#pragma warning( push )
+#pragma warning( disable : 4201 )
+typedef union
 {
-    r32 x;
-    r32 y;
-    r32 z;
+    typedef struct
+    {
+        r32 x;
+        r32 y;
+        r32 z;
+    };
+
+    typedef union
+    {
+        // Little Endian Storage
+        // Access via "channel" macro
+        struct
+        {
+            r32 R;
+            r32 G;
+            r32 B;
+        } MSB_channel;
+
+        // Big Endian Storage
+        // Access via "channel" macro
+        struct
+        {
+            r32 B;
+            r32 G;
+            r32 R;
+        } LSB_channel;
+    };
+
+    r32  arr[3];
 } v3;
+#pragma warning( pop )
 
 
-typedef struct
+#pragma warning( push )
+#pragma warning( disable : 4201 )
+typedef union
 {
-    r32 x;
-    r32 y;
-    r32 z;
-    r32 w;
+    typedef struct
+    {
+        r32 x;
+        r32 y;
+        r32 z;
+        r32 w;
+    };
+
+    typedef union
+    {
+        // Little Endian Storage
+        // Access via "channel" macro
+        struct
+        {
+            r32 A;
+            r32 R;
+            r32 G;
+            r32 B;
+        } MSB_channel;
+
+        // Big Endian Storage
+        // Access via "channel" macro
+        struct
+        {
+            r32 B;
+            r32 G;
+            r32 R;
+            r32 A;
+        } LSB_channel;
+    };
+
+    r32 arr[4];
 } v4;
+#pragma warning( pop )
 
 
+#pragma warning( push )
+#pragma warning( disable : 4201 )
 typedef union
 {
     struct
@@ -146,13 +211,16 @@ typedef union
         v3 i;
         v3 j;
         v3 k;
-    } row;
+    };
 
     r32 arr[9];
     r32 arr2d[3][3];
 } m3;
+#pragma warning( pop )
 
 
+#pragma warning( push )
+#pragma warning( disable : 4201 )
 typedef union
 {
     struct
@@ -161,11 +229,12 @@ typedef union
         v4 j;
         v4 k;
         v4 n;
-    } row;
+    };
 
     r32 arr[16];
     r32 arr2d[4][4];
 } m4;
+#pragma warning( pop )
 
 
 typedef struct
@@ -294,8 +363,13 @@ CreatePixelArray(size_t image_width,
                  size_t image_height,
                  size_t bit_depth)
 {
-    return calloc((image_width*image_height),
-                  (bit_depth * sizeof(u8)));
+    Assert(image_width);
+    Assert(image_height);
+    Assert(bit_depth >= 8);
+    void* ret = calloc((image_width*image_height),
+                       (bit_depth * sizeof(u8)));
+    Assert(ret);
+    return ret;
 }
 
 
@@ -631,9 +705,9 @@ _internal_ bool
 m3IsEqual(m3* const a, m3* const b)
 {
     Assert(a && b);
-    return( (v3IsEqual(&a->row.i, &b->row.i)) &&
-            (v3IsEqual(&a->row.j, &b->row.j)) &&
-            (v3IsEqual(&a->row.k, &b->row.k)) );
+    return( (v3IsEqual(&a->i, &b->i)) &&
+            (v3IsEqual(&a->j, &b->j)) &&
+            (v3IsEqual(&a->k, &b->k)) );
 }
 
 
@@ -689,10 +763,10 @@ _internal_ bool
 m4IsEqual(m4* const a, m4* const b)
 {
     Assert(a && b);
-    return( (v4IsEqual(&a->row.i, &b->row.i)) &&
-            (v4IsEqual(&a->row.j, &b->row.j)) &&
-            (v4IsEqual(&a->row.k, &b->row.k)) &&
-            (v4IsEqual(&a->row.n, &b->row.n)) );
+    return( (v4IsEqual(&a->i, &b->i)) &&
+            (v4IsEqual(&a->j, &b->j)) &&
+            (v4IsEqual(&a->k, &b->k)) &&
+            (v4IsEqual(&a->n, &b->n)) );
 }
 
 
@@ -983,10 +1057,10 @@ TestMaths()
     Assert(sum == 9);
 
     // union m3
-    m3A.row.i = (v3){1.5, 2.5, 3.5};
-    m3A.row.j = (v3){4.5, 5.5, 6.5};
-    m3A.row.k = (v3){7.5, 8.5, 9.5};
-    v3Add(&m3A.row.i, &m3A.row.j, &v3Result);
+    m3A.i = (v3){1.5, 2.5, 3.5};
+    m3A.j = (v3){4.5, 5.5, 6.5};
+    m3A.k = (v3){7.5, 8.5, 9.5};
+    v3Add(&m3A.i, &m3A.j, &v3Result);
     Assert(v3Result.x == 6);
     Assert(v3Result.y == 8);
     Assert(v3Result.z == 10);
@@ -1008,19 +1082,19 @@ TestMaths()
     }
     Assert(sum == 0);
 
-    m3A.row.i = (v3){1, 2, 3};
-    m3A.row.j = (v3){4, 5, 6};
-    m3A.row.k = (v3){7, 8, 9};
-    m3B.row.i = (v3){10, 20, 30};
-    m3B.row.j = (v3){40, 50, 60};
-    m3B.row.k = (v3){70, 80, 90};
+    m3A.i = (v3){1, 2, 3};
+    m3A.j = (v3){4, 5, 6};
+    m3A.k = (v3){7, 8, 9};
+    m3B.i = (v3){10, 20, 30};
+    m3B.j = (v3){40, 50, 60};
+    m3B.k = (v3){70, 80, 90};
     m3Mult(&m3A, &m3B, &m3Result);
     v3Set(&v3Result, 300, 360, 420);
-    Assert(v3IsEqual(&m3Result.row.i, &v3Result));
+    Assert(v3IsEqual(&m3Result.i, &v3Result));
     v3Set(&v3Result, 660, 810, 960);
-    Assert(v3IsEqual(&m3Result.row.j, &v3Result));
+    Assert(v3IsEqual(&m3Result.j, &v3Result));
     v3Set(&v3Result, 1020, 1260, 1500);
-    Assert(v3IsEqual(&m3Result.row.k, &v3Result));
+    Assert(v3IsEqual(&m3Result.k, &v3Result));
 
 
     //
@@ -1059,10 +1133,10 @@ TestMaths()
     Assert(sum == 16);
 
     // union m4
-    m4A.row.i = (v4){1.5, 2.5, 3.5, 4.5};
-    m4A.row.j = (v4){4.5, 5.5, 6.5, 7.5};
-    m4A.row.k = (v4){7.5, 8.5, 9.5, 1.0};
-    v4Add(&m4A.row.i, &m4A.row.j, &v4Result);
+    m4A.i = (v4){1.5, 2.5, 3.5, 4.5};
+    m4A.j = (v4){4.5, 5.5, 6.5, 7.5};
+    m4A.k = (v4){7.5, 8.5, 9.5, 1.0};
+    v4Add(&m4A.i, &m4A.j, &v4Result);
     Assert(v4Result.x == 6);
     Assert(v4Result.y == 8);
     Assert(v4Result.z == 10);
@@ -1087,23 +1161,23 @@ TestMaths()
     }
     Assert(sum == 0);
 
-    m4A.row.i = (v4){1,  2,  3,    9};
-    m4A.row.j = (v4){4,  5,  6,    8};
-    m4A.row.k = (v4){7,  8,  9,    7};
-    m4A.row.n = (v4){10, 11, 12,   6};
-    m4B.row.i = (v4){10, 20, 30,  90};
-    m4B.row.j = (v4){40, 50, 60,  80};
-    m4B.row.k = (v4){70, 80, 90,  70};
-    m4B.row.n = (v4){80, 90, 100, 60};
+    m4A.i = (v4){1,  2,  3,    9};
+    m4A.j = (v4){4,  5,  6,    8};
+    m4A.k = (v4){7,  8,  9,    7};
+    m4A.n = (v4){10, 11, 12,   6};
+    m4B.i = (v4){10, 20, 30,  90};
+    m4B.j = (v4){40, 50, 60,  80};
+    m4B.k = (v4){70, 80, 90,  70};
+    m4B.n = (v4){80, 90, 100, 60};
     m4Mult(&m4A, &m4B, &m4Result);
     v4Set(&v4Result, 1020, 1170, 1320, 1000);
-    Assert(v4IsEqual(&m4Result.row.i, &v4Result));
+    Assert(v4IsEqual(&m4Result.i, &v4Result));
     v4Set(&v4Result, 1300, 1530, 1760, 1660);
-    Assert(v4IsEqual(&m4Result.row.j, &v4Result));
+    Assert(v4IsEqual(&m4Result.j, &v4Result));
     v4Set(&v4Result, 1580, 1890, 2200, 2320);
-    Assert(v4IsEqual(&m4Result.row.k, &v4Result));
+    Assert(v4IsEqual(&m4Result.k, &v4Result));
     v4Set(&v4Result, 1860, 2250, 2640, 2980);
-    Assert(v4IsEqual(&m4Result.row.n, &v4Result));
+    Assert(v4IsEqual(&m4Result.n, &v4Result));
 
 
     //

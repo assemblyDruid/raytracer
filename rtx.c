@@ -29,48 +29,62 @@
 #define NUM_PIXELS    IMAGE_WIDTH*IMAGE_HEIGHT
 
 _internal_ void
-WritePPM(u32* const      pixel_array,
-         u32             image_width,
-         u32             image_height,
-         const u8* const image_name)
+WritePPM32(Color32* const pixel_array,
+           u32            image_width,
+           u32            image_height,
+           const char*    image_name)
 {
     Assert(pixel_array && image_width && image_height);
 
-    FILE* ppm_file = fopen(IMAGE_NAME, "w");
+    FILE* ppm_file = fopen(image_name, "w");
     Assert(ppm_file);
 
-    u8* ppm_header;
-    u32 success = snprintf(ppm_header, MAX_PPM_HEADER_SIZE,
+    char ppm_header[MAX_PPM_HEADER_SIZE];
+    u32 success = snprintf(ppm_header,
+                           MAX_PPM_HEADER_SIZE,
                            "P3\n%d %d\n255\n",
                            image_width,
                            image_height);
-    Assert(success > 0 && success < MAX_PPM_HEADER_SIZE);
+    Assert((success > 0) &&
+           (success < MAX_PPM_HEADER_SIZE));
+    fwrite(ppm_header, success, 1, ppm_file);
 
-    u8* ppm_image_data = calloc(MAX_PPM_RGB_TRIPPLET_SIZE * NUM_PIXELS,
-                                sizeof(u8));
-    Assert(ppm_image_data);
-
-    u8 chars_last_written = 0;
-    u8 rgb_tripplet[MAX_PPM_RGB_TRIPPLET_SIZE];
+    // [ cfarvin::TODO ] [ cfarvin::DEBUG ] This is as temporary as it is bad.
+    char rgb_tripplet[MAX_PPM_TRIPPLET_SIZE];
+    size_t pix_idx = 0;
     for (size_t y = 0; y < image_height; y++)
     {
         for (size_t x = 0; x < image_width; x++)
         {
-            chars_last_written = snprintf(rgb_tripplet,
-                                          "%d%d%d",
-                );
+            for (char idx = 0; idx < MAX_PPM_TRIPPLET_SIZE; idx++)
+            {
+                rgb_tripplet[idx] = '\0';
+            }
+
+            success = snprintf(rgb_tripplet,
+                               MAX_PPM_TRIPPLET_SIZE,
+                               "%d %d %d\n",
+                               pixel_array[pix_idx].channel.R,
+                               pixel_array[pix_idx].channel.G,
+                               pixel_array[pix_idx].channel.B);
+            Assert((success > 0) &&
+                   (success < MAX_PPM_TRIPPLET_SIZE));
+
+            fwrite(rgb_tripplet, success, 1, ppm_file);
+            pix_idx++;
         }
     }
 
+    Assert(pix_idx == (image_height * image_width));
     fclose(ppm_file);
 }
 
 
 _internal_ void
-WriteBitmap(u32* const      pixel_array,
-            u32             image_width,
-            u32             image_height,
-            const u8* const image_name)
+WriteBitmap32(Color32* const pixel_array,
+              u32            image_width,
+              u32            image_height,
+              const char*    image_name)
 
 {
     Assert(pixel_array && image_width && image_height);
@@ -87,7 +101,7 @@ WriteBitmap(u32* const      pixel_array,
     bitmap_header.bits_per_pix = 32;
     bitmap_header.pix_arr_size = pixel_array_size;
 
-    FILE* bitmap_file = fopen(IMAGE_NAME, "wb");
+    FILE* bitmap_file = fopen(image_name, "wb");
     Assert(bitmap_file);
 
     fwrite(&bitmap_header, sizeof(BitmapHeader), 1, bitmap_file);
@@ -102,11 +116,14 @@ Log()
     printf("\nRaytracing...\n");
     if (__RTX_DEBUG__)
     {
-        printf("RTX debug tooling ON\n");
+        printf("RTX debug tools:  ON\n");
+        printf("Math tests:       ON\n");
+        TestMaths();
     }
     else
     {
-        printf("RTX debug tooling OFF\n");
+        printf("RTX debug tools:  OFF\n");
+        printf("Math tests:       OFF\n");
     }
     if (__RTX_AA__)
     {
@@ -186,13 +203,11 @@ main(int argc, char** argv)
 {
     if (argc || argv) {} // [ cfarvin::TEMP ] Silence unused variable warning
 
-    _run_tests_;
-
     // Init XorShift
     XorShift32State = 42;
 
     // Init pixel array
-    u32* pixel_array = (u32*)CreatePixelArray(IMAGE_WIDTH ,IMAGE_HEIGHT, 32);
+    Color32* pixel_array = (Color32*)CreatePixelArray(IMAGE_WIDTH ,IMAGE_HEIGHT, 32);
 
     // Init pimary ray
     Ray  ray;
@@ -275,9 +290,9 @@ main(int argc, char** argv)
 
             }
 
-            pixel_color.channel.R = aa_pixel_color_accumulator.x / aa_rays_per_pixel;
-            pixel_color.channel.G = aa_pixel_color_accumulator.y / aa_rays_per_pixel;
-            pixel_color.channel.B = aa_pixel_color_accumulator.z / aa_rays_per_pixel;
+            pixel_color.channel.R = (u8)(aa_pixel_color_accumulator.x / aa_rays_per_pixel);
+            pixel_color.channel.G = (u8)(aa_pixel_color_accumulator.y / aa_rays_per_pixel);
+            pixel_color.channel.B = (u8)(aa_pixel_color_accumulator.z / aa_rays_per_pixel);
 //
 #else // __RTX_AA__
 //
@@ -326,13 +341,13 @@ main(int argc, char** argv)
             }
 
 
-            pixel_array[pixel_array_idx] = pixel_color.value;
+            pixel_array[pixel_array_idx].value = pixel_color.value;
             pixel_array_idx++;
         }
     }
 
-    WriteBitmap(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rtx.bmp");
-    WritePPM(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rtx.bmp");
+    WriteBitmap32(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rtx.bmp");
+    WritePPM32(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rtx.ppm");
     printf("[ success ]\n");
     return 0;
 }
