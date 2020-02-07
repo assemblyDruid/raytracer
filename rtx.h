@@ -7,9 +7,14 @@
 #ifndef ON
 #define ON 1
 #endif // _ON_
+
 #ifndef OFF
 #define OFF 0
 #endif // _OFF_
+
+#ifndef _mut_
+#define _mut_ /* NOTICE: MUTABLE */
+#endif // _mut_
 
 // Modes
 #define __RTX_AA__    ON
@@ -124,19 +129,20 @@ typedef union
     u32 value;
 } Color32;
 
-
+#ifdef _WIN32
 #pragma warning( push )
 #pragma warning( disable : 4201 )
+#endif // WIN32
 typedef union
 {
-    typedef struct
+    struct
     {
         r32 x;
         r32 y;
         r32 z;
     };
 
-    typedef union
+    union
     {
         // Little Endian Storage
         // Access via "channel" macro
@@ -159,14 +165,18 @@ typedef union
 
     r32  arr[3];
 } v3;
+#ifdef _WIN32
 #pragma warning( pop )
+#endif // WIN32
 
 
+#if _WIN32
 #pragma warning( push )
 #pragma warning( disable : 4201 )
+#endif // WIN32
 typedef union
 {
-    typedef struct
+    struct
     {
         r32 x;
         r32 y;
@@ -174,7 +184,7 @@ typedef union
         r32 w;
     };
 
-    typedef union
+    union
     {
         // Little Endian Storage
         // Access via "channel" macro
@@ -199,11 +209,15 @@ typedef union
 
     r32 arr[4];
 } v4;
+#if _WIN32
 #pragma warning( pop )
+#endif // WIN32
 
 
+#if _WIN32
 #pragma warning( push )
 #pragma warning( disable : 4201 )
+#endif // WIN32
 typedef union
 {
     struct
@@ -216,11 +230,15 @@ typedef union
     r32 arr[9];
     r32 arr2d[3][3];
 } m3;
+#if _WIN32
 #pragma warning( pop )
+#endif // WIN32
 
 
+#if _WIN32
 #pragma warning( push )
 #pragma warning( disable : 4201 )
+#endif // WIN32
 typedef union
 {
     struct
@@ -234,7 +252,9 @@ typedef union
     r32 arr[16];
     r32 arr2d[4][4];
 } m4;
+#if _WIN32
 #pragma warning( pop )
+#endif // WIN32
 
 
 typedef struct
@@ -246,10 +266,11 @@ typedef struct
 
 typedef struct
 {
-    r32  magnitude;
     v3   position;
     v3   normal_vector;
-} RayCollision;
+    r32  magnitude;
+    bool does_intersect;
+} RayIntersection;
 
 
 typedef struct
@@ -290,7 +311,7 @@ typedef struct
 // Methods
 //
 _internal_ _inline_ bool
-IsWithinTolerance(r32 value, r32 target_value)
+IsWithinTolerance(const r32 value, const r32 target_value)
 {
     r32 min = value - TOLERANCE;
     r32 max = value + TOLERANCE;
@@ -324,16 +345,16 @@ NormalBoundedXorShift32()
 
 
 _internal_ _inline_ r32
-NormalRayDistLerp(r32 old_value)
+NormalRayDistLerp(const r32 old_value)
 {
     Assert(MAX_RAY_MAG > MIN_RAY_MAG);
     return ((old_value - MIN_RAY_MAG) * (1.0f / FLT_MAX));
 }
 
 _internal_ _inline_ u8
-BindValueTo8BitColorChannel(r32 value_min,
-                            r32 value_max,
-                            r32 value)
+BindValueTo8BitColorChannel(const r32 value_min,
+                            const r32 value_max,
+                            const r32 value)
 {
     Assert(value_max > value_min);
     Assert((value_max >= value) && (value_min <= value));
@@ -343,7 +364,7 @@ BindValueTo8BitColorChannel(r32 value_min,
 
 
 _internal_ _inline_ r32
-DegreesToRadians(r32 degrees)
+DegreesToRadians(const r32 degrees)
 {
     r32 radians = degrees * (_PI_ / 180.0f);
     return radians;
@@ -351,7 +372,7 @@ DegreesToRadians(r32 degrees)
 
 
 _internal_ _inline_ r32
-RadiansToDegrees(r32 radians)
+RadiansToDegrees(const r32 radians)
 {
     r32 degrees = radians * (180.0f / _PI_);
     return degrees;
@@ -359,9 +380,9 @@ RadiansToDegrees(r32 radians)
 
 
 _internal_ void*
-CreatePixelArray(size_t image_width,
-                 size_t image_height,
-                 size_t bit_depth)
+CreatePixelArray(const size_t image_width,
+                 const size_t image_height,
+                 const size_t bit_depth)
 {
     Assert(image_width);
     Assert(image_height);
@@ -374,7 +395,7 @@ CreatePixelArray(size_t image_width,
 
 
 _internal_ Sphere*
-CreateSpheres(size_t sphere_count)
+CreateSpheres(const size_t sphere_count)
 {
     return (Sphere*)calloc(sphere_count, sizeof(Sphere));
 }
@@ -436,7 +457,10 @@ CreateSpheres(size_t sphere_count)
 // v3
 //
 _internal_ _inline_ void
-v3Set(v3* const result, r32 x, r32 y, r32 z)
+v3Set(_mut_ v3* const result,
+      const r32 x,
+      const r32 y,
+      const r32 z)
 {
     Assert(result);
     result->x = x;
@@ -446,7 +470,7 @@ v3Set(v3* const result, r32 x, r32 y, r32 z)
 
 
 _internal_ _inline_ bool
-v3IsEqual(v3* const a, v3* const b)
+v3IsEqual(const v3* const a, const v3* const b)
 {
     Assert(a && b);
     return ( IsWithinTolerance(a->x, b->x) &&
@@ -456,7 +480,7 @@ v3IsEqual(v3* const a, v3* const b)
 
 
 _internal_ _inline_ r32
-v3Mag(v3* const a)
+v3Mag(const v3* const a)
 {
     Assert(a);
     r32 x2 = a->x * a->x;
@@ -468,7 +492,7 @@ v3Mag(v3* const a)
 
 
 _internal_ _inline_ bool
-v3IsNorm(v3* const a)
+v3IsNorm(const v3* const a)
 {
     return(IsWithinTolerance(v3Mag(a), 1.0f));
 }
@@ -494,7 +518,10 @@ v3Norm(v3* const a)
 
 
 _internal_ _inline_ void
-v3SetAndNorm(v3* const result, r32 x, r32 y, r32 z)
+v3SetAndNorm(_mut_ v3* const result,
+             const r32 x,
+             const r32 y,
+             const r32 z)
 {
     Assert(result);
     result->x = x;
@@ -505,7 +532,9 @@ v3SetAndNorm(v3* const result, r32 x, r32 y, r32 z)
 
 
 _internal_ _inline_ void
-v3Add(v3* const a, v3* const b, v3* const result)
+v3Add(const v3* const a,
+      const v3* const b,
+      _mut_ v3* const result)
 {
     Assert(a && b && result);
     result->x = a->x + b->x;
@@ -515,7 +544,9 @@ v3Add(v3* const a, v3* const b, v3* const result)
 
 
 _internal_ _inline_ void
-v3Sub(v3* const a, v3* const b, v3* const result)
+v3Sub(const v3* const a,
+      const v3* const b,
+      _mut_ v3* const result)
 {
     Assert(a && b && result);
     result->x = a->x - b->x;
@@ -525,7 +556,9 @@ v3Sub(v3* const a, v3* const b, v3* const result)
 
 
 _internal_ _inline_ void
-v3ScalarMul(v3* const a, r32 scalar, v3* const result)
+v3ScalarMul(const v3* const a,
+            const r32 scalar,
+            _mut_ v3* const result)
 {
     Assert(a && result);
     result->x = a->x * scalar;
@@ -535,7 +568,7 @@ v3ScalarMul(v3* const a, r32 scalar, v3* const result)
 
 
 _internal_ _inline_ r32
-v3Dot(v3* const a, v3* const b)
+v3Dot(const v3* const a, const v3* const b)
 {
     Assert(a && b);
     r32 result = 0;
@@ -545,7 +578,9 @@ v3Dot(v3* const a, v3* const b)
     return result;
 }
 _internal_ _inline_ void
-v3Cross(v3* const a, v3* const b, v3* const result)
+v3Cross(const v3* const a,
+        const v3* const b,
+        _mut_ v3* const result)
 {
     Assert(a && b && result);
     r32 i = ((a->y * b->z) - (a->z * b->y));
@@ -556,7 +591,9 @@ v3Cross(v3* const a, v3* const b, v3* const result)
 
 
 _internal_ _inline_ void
-v3CrossAndNorm(v3* const a, v3* const b, v3* const result)
+v3CrossAndNorm(const v3* const a,
+               const v3* const b,
+               _mut_ v3* const result)
 {
     Assert(a && b && result);
     v3Cross(a, b, result);
@@ -568,7 +605,11 @@ v3CrossAndNorm(v3* const a, v3* const b, v3* const result)
 // v4
 //
 _internal_ _inline_ void
-v4Set(v4* const result, r32 x, r32 y, r32 z, r32 w)
+v4Set(v4* const result,
+      const r32 x,
+      const r32 y,
+      const r32 z,
+      const r32 w)
 {
     Assert(result);
     result->x = x;
@@ -579,7 +620,7 @@ v4Set(v4* const result, r32 x, r32 y, r32 z, r32 w)
 
 
 _internal_ _inline_ bool
-v4IsEqual(v4* const a, v4* const b)
+v4IsEqual(const v4* const a, const v4* const b)
 {
     Assert(a && b);
     return (IsWithinTolerance(a->x, b->x) &&
@@ -590,7 +631,7 @@ v4IsEqual(v4* const a, v4* const b)
 
 
 _internal_ _inline_ r32
-v4Mag(v4* const a)
+v4Mag(const v4* const a)
 {
     Assert(a);
     r32 x2 = a->x * a->x;
@@ -603,14 +644,14 @@ v4Mag(v4* const a)
 
 
 _internal_ _inline_ bool
-v4IsNorm(v4* const a)
+v4IsNorm(const v4* const a)
 {
     return(IsWithinTolerance(v4Mag(a), 1.0f));
 }
 
 
 _internal_ _inline_ void
-v4Norm(v4* const a)
+v4Norm(_mut_ v4* const a)
 {
     Assert(a);
     r32 magnitude = v4Mag(a);
@@ -630,7 +671,11 @@ v4Norm(v4* const a)
 
 
 _internal_ _inline_ void
-v4SetAndNorm(v4* const result, r32 x, r32 y, r32 z, r32 w)
+v4SetAndNorm(_mut_ v4* const result,
+             const r32 x,
+             const r32 y,
+             const r32 z,
+             const r32 w)
 {
     Assert(result);
     result->x = x;
@@ -642,7 +687,9 @@ v4SetAndNorm(v4* const result, r32 x, r32 y, r32 z, r32 w)
 
 
 _internal_ _inline_ void
-v4Add(v4* const a, v4* const b, v4* const result)
+v4Add(const v4* const a,
+      const v4* const b,
+      _mut_ v4* const result)
 {
     Assert(a && b && result);
     result->x = a->x + b->x;
@@ -653,7 +700,9 @@ v4Add(v4* const a, v4* const b, v4* const result)
 
 
 _internal_ _inline_ void
-v4Sub(v4* const a, v4* const b, v4* const result)
+v4Sub(const v4* const a,
+      const v4* const b,
+      _mut_ v4* const result)
 {
     Assert(a && b && result);
     result->x = a->x - b->x;
@@ -664,7 +713,9 @@ v4Sub(v4* const a, v4* const b, v4* const result)
 
 
 _internal_ _inline_ void
-v4ScalarMul(v4* const a, r32 scalar, v4* const result)
+v4ScalarMul(const v4* const a,
+            const r32 scalar,
+            _mut_ v4* const result)
 {
     Assert(a && result);
     result->x = a->x * scalar;
@@ -675,7 +726,7 @@ v4ScalarMul(v4* const a, r32 scalar, v4* const result)
 
 
 _internal_ _inline_ r32
-v4Dot(v4* const a, v4* const b)
+v4Dot(const v4* const a, const v4* const b)
 {
     Assert(a && b);
     r32 result = 0;
@@ -691,7 +742,7 @@ v4Dot(v4* const a, v4* const b)
 // m3
 //
 _internal_ void
-m3Set(m3* const a, r32 b)
+m3Set(_mut_ m3* const a, const r32 b)
 {
     Assert(a);
     for (uint8_t idx = 0; idx < 9; idx++)
@@ -702,7 +753,7 @@ m3Set(m3* const a, r32 b)
 
 
 _internal_ bool
-m3IsEqual(m3* const a, m3* const b)
+m3IsEqual(const m3* const a, const m3* const b)
 {
     Assert(a && b);
     return( (v3IsEqual(&a->i, &b->i)) &&
@@ -729,7 +780,9 @@ m3Ident(m3* const result)
 
 
 _internal_ _inline_ void
-m3Mult(m3* const a, m3* const b, m3* const result)
+m3Mult(const m3* const a,
+       const m3* const b,
+       _mut_ m3* const result)
 {
     Assert(a && b && result);
     for (uint8_t col = 0; col < 3; col++)
@@ -749,7 +802,7 @@ m3Mult(m3* const a, m3* const b, m3* const result)
 // m4
 //
 _internal_ void
-m4Set(m4* const a, r32 b)
+m4Set(_mut_ m4* const a, const r32 b)
 {
     Assert(a);
     for (uint8_t idx = 0; idx < 16; idx++)
@@ -760,7 +813,7 @@ m4Set(m4* const a, r32 b)
 
 
 _internal_ bool
-m4IsEqual(m4* const a, m4* const b)
+m4IsEqual(const m4* const a, const m4* const b)
 {
     Assert(a && b);
     return( (v4IsEqual(&a->i, &b->i)) &&
@@ -772,7 +825,7 @@ m4IsEqual(m4* const a, m4* const b)
 
 // [ cfarvin::TODO ] Measure & improve
 _internal_ void
-m4Ident(m4* const result)
+m4Ident(_mut_ m4* const result)
 {
     Assert(result);
     for (uint8_t idx = 0; idx < 16; idx++)
@@ -788,7 +841,9 @@ m4Ident(m4* const result)
 
 
 _internal_ _inline_ void
-m4Mult(m4* const a, m4* const b, m4* const result)
+m4Mult(const m4* const a,
+       const m4* const b,
+       _mut_ m4* const result)
 {
     Assert(a && b && result);
     for (uint8_t col = 0; col < 4; col++)
@@ -809,38 +864,11 @@ m4Mult(m4* const a, m4* const b, m4* const result)
 // Intersection Calcultions
 //
 _internal_ _inline_ void
-SetSphereCollision(Ray*          const ray,
-                   Sphere*       const sphere,
-                   RayCollision* const collision,
-                   const r32           magnitude)
+IntersectSpheres(const Ray*             const ray,
+                 const Sphere*          const sphere,
+                 _mut_ RayIntersection* const intersection)
 {
-    collision->magnitude = magnitude;
-    v3Set(&collision->position,
-          ray->origin.x + (magnitude*ray->direction.x),
-          ray->origin.y + (magnitude*ray->direction.y),
-          ray->origin.z + (magnitude*ray->direction.z));
-    v3Sub(&sphere->position,
-          &collision->position,
-          &collision->normal_vector);
-
-    // Correct normal vector direction if needed.
-    // We seek the normal opposite the direction of the ray.
-    if (sphere->radius > magnitude)
-    {
-        v3ScalarMul(&collision->normal_vector,
-                    -1.0f,
-                    &collision->normal_vector);
-    }
-
-    v3Norm(&collision->normal_vector);
-}
-
-_internal_ _inline_ bool
-DoesIntersectSphere(Ray*          const ray,
-                    Sphere*       const sphere,
-                    RayCollision* const collision_ptr)
-{
-    Assert(ray && sphere);
+    Assert(ray && sphere && intersection);
     Assert(v3IsNorm(&ray->direction));
 
     // Quadratic
@@ -853,7 +881,8 @@ DoesIntersectSphere(Ray*          const ray,
     if(!(ray_dir_mag >= MIN_RAY_MAG &&
          ray_dir_mag <= MAX_RAY_MAG))
     {
-        return false;
+        intersection->does_intersect = false;
+        return;
     }
 
     r32 a = ray_dir_mag * ray_dir_mag;
@@ -863,23 +892,34 @@ DoesIntersectSphere(Ray*          const ray,
     Assert(c > 0);
 
     // Return value
-    bool does_collide = discriminant >= 0;
+    intersection->does_intersect = discriminant >= 0;
 
-    // Compute collision only if user provides collision pointer.
-    if (does_collide && collision_ptr)
+    if (intersection->does_intersect)
     {
-        r32 tmp_dist_a = ((b * -1.0f) - (r32)sqrt(discriminant))
+        r32 magnitude = ((b * -1.0f) - (r32)sqrt(discriminant))
             / (2.0f * a);
-        if ((tmp_dist_a <= MAX_RAY_MAG) && (tmp_dist_a >= MIN_RAY_MAG))
-        {
-            SetSphereCollision(ray,
-                               sphere,
-                               collision_ptr,
-                               tmp_dist_a);
-        }
-    }
+        Assert(magnitude >= 0);
+        intersection->magnitude = magnitude;
 
-    return does_collide;
+        v3Set(&intersection->position,
+              ray->origin.x + (magnitude*ray->direction.x),
+              ray->origin.y + (magnitude*ray->direction.y),
+              ray->origin.z + (magnitude*ray->direction.z));
+
+        v3Sub(&sphere->position,
+              &intersection->position,
+              &intersection->normal_vector);
+
+        // Correct normal vector direction if needed.
+        // We seek the normal opposite the direction of the ray.
+        /* if (sphere->radius > magnitude) */
+        /* { */
+        /*     v3ScalarMul(&intersection->normal_vector, */
+        /*                 -1.0f, */
+        /*                 &intersection->normal_vector); */
+        /* } */
+        v3Norm(&intersection->normal_vector);
+    }
 }
 
 
@@ -1057,9 +1097,9 @@ TestMaths()
     Assert(sum == 9);
 
     // union m3
-    m3A.i = (v3){1.5, 2.5, 3.5};
-    m3A.j = (v3){4.5, 5.5, 6.5};
-    m3A.k = (v3){7.5, 8.5, 9.5};
+    m3A.i = (v3){{1.5, 2.5, 3.5}};
+    m3A.j = (v3){{4.5, 5.5, 6.5}};
+    m3A.k = (v3){{7.5, 8.5, 9.5}};
     v3Add(&m3A.i, &m3A.j, &v3Result);
     Assert(v3Result.x == 6);
     Assert(v3Result.y == 8);
@@ -1082,12 +1122,12 @@ TestMaths()
     }
     Assert(sum == 0);
 
-    m3A.i = (v3){1, 2, 3};
-    m3A.j = (v3){4, 5, 6};
-    m3A.k = (v3){7, 8, 9};
-    m3B.i = (v3){10, 20, 30};
-    m3B.j = (v3){40, 50, 60};
-    m3B.k = (v3){70, 80, 90};
+    m3A.i = (v3){{1, 2, 3}};
+    m3A.j = (v3){{4, 5, 6}};
+    m3A.k = (v3){{7, 8, 9}};
+    m3B.i = (v3){{10, 20, 30}};
+    m3B.j = (v3){{40, 50, 60}};
+    m3B.k = (v3){{70, 80, 90}};
     m3Mult(&m3A, &m3B, &m3Result);
     v3Set(&v3Result, 300, 360, 420);
     Assert(v3IsEqual(&m3Result.i, &v3Result));
@@ -1133,9 +1173,9 @@ TestMaths()
     Assert(sum == 16);
 
     // union m4
-    m4A.i = (v4){1.5, 2.5, 3.5, 4.5};
-    m4A.j = (v4){4.5, 5.5, 6.5, 7.5};
-    m4A.k = (v4){7.5, 8.5, 9.5, 1.0};
+    m4A.i = (v4){{1.5, 2.5, 3.5, 4.5}};
+    m4A.j = (v4){{4.5, 5.5, 6.5, 7.5}};
+    m4A.k = (v4){{7.5, 8.5, 9.5, 1.0}};
     v4Add(&m4A.i, &m4A.j, &v4Result);
     Assert(v4Result.x == 6);
     Assert(v4Result.y == 8);
@@ -1161,14 +1201,14 @@ TestMaths()
     }
     Assert(sum == 0);
 
-    m4A.i = (v4){1,  2,  3,    9};
-    m4A.j = (v4){4,  5,  6,    8};
-    m4A.k = (v4){7,  8,  9,    7};
-    m4A.n = (v4){10, 11, 12,   6};
-    m4B.i = (v4){10, 20, 30,  90};
-    m4B.j = (v4){40, 50, 60,  80};
-    m4B.k = (v4){70, 80, 90,  70};
-    m4B.n = (v4){80, 90, 100, 60};
+    m4A.i = (v4){{1,  2,  3,    9}};
+    m4A.j = (v4){{4,  5,  6,    8}};
+    m4A.k = (v4){{7,  8,  9,    7}};
+    m4A.n = (v4){{10, 11, 12,   6}};
+    m4B.i = (v4){{10, 20, 30,  90}};
+    m4B.j = (v4){{40, 50, 60,  80}};
+    m4B.k = (v4){{70, 80, 90,  70}};
+    m4B.n = (v4){{80, 90, 100, 60}};
     m4Mult(&m4A, &m4B, &m4Result);
     v4Set(&v4Result, 1020, 1170, 1320, 1000);
     Assert(v4IsEqual(&m4Result.i, &v4Result));

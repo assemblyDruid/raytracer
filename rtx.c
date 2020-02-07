@@ -58,7 +58,7 @@ WritePPM32(Color32* const pixel_array,
         {
             for (char idx = 0; idx < MAX_PPM_TRIPPLET_SIZE; idx++)
             {
-                rgb_tripplet[idx] = '\0';
+                rgb_tripplet[(size_t)idx] = '\0';
             }
 
             success = snprintf(rgb_tripplet,
@@ -152,31 +152,32 @@ Log()
 
 
 _internal_ _inline_ void
-TraceSpheres(Ray*          const ray,
-             RayCollision* const collision,
-             r32*          const collision_mag_threshold,
-             bool*         const does_intersect,
-             Color32*      const return_color,
-             Sphere*       const sphere_arr,
-             const size_t        num_spheres)
+TraceSpheres(const Ray*             const ray,
+             _mut_ RayIntersection* const intersection,
+             const r32*             const global_magnitude_threshold,
+             _mut_ Color32*         const return_color,
+             const Sphere*          const sphere_arr,
+             const size_t                 num_spheres)
 {
     Assert(ray);
-    Assert(collision);
-    Assert(does_intersect);
+    Assert(intersection);
     Assert(return_color);
     Assert(sphere_arr);
-    Assert(collision_mag_threshold);
-    Assert(*collision_mag_threshold >= 0);
+    Assert(global_magnitude_threshold);
+    Assert(*global_magnitude_threshold >= 0);
 
-    *does_intersect = false;
+    r32 local_magnitude_threshold = *global_magnitude_threshold;
+    intersection->does_intersect = false;
+
     for (size_t sphere_index = 0; sphere_index < num_spheres; sphere_index++)
     {
+        IntersectSpheres(ray, &sphere_arr[sphere_index], intersection);
 
-        if (DoesIntersectSphere(ray, &sphere_arr[sphere_index], collision)
-            && (collision->magnitude < *collision_mag_threshold))
+        if (intersection->does_intersect &&
+            (intersection->magnitude < local_magnitude_threshold))
         {
-            *does_intersect = true;
-            *collision_mag_threshold = collision->magnitude;
+            intersection->does_intersect = true;
+            local_magnitude_threshold = intersection->magnitude;
             return_color->value = sphere_arr[sphere_index].material.color.value;
         }
     }
@@ -239,22 +240,26 @@ main(int argc, char** argv)
 #endif // __RTX_AA_
 
     // Init loop defaults
-    RayCollision collision               = { 0 };
+    RayIntersection intersection               = { 0 };
     Color32      pixel_color             = { 0 };
     Color32      returned_pixel_color    = { 0 };
     size_t       pixel_array_idx         = 0;
-    r32          collision_mag_threshold = (r32)MAX_RAY_MAG;
-    bool         collided                = false;
+    r32          global_magnitude_threshold = (r32)MAX_RAY_MAG;
 
 
     // Display startup message
     Log();
 
+    // Raytrace
     for (size_t pix_y = 0; pix_y < IMAGE_HEIGHT; pix_y++)
     {
         for (size_t pix_x = 0; pix_x < IMAGE_WIDTH; pix_x++)
         {
-            collision_mag_threshold = (r32)MAX_RAY_MAG;           // Reset ray distance
+            Assert(ray.origin.x == 0);
+            Assert(ray.origin.y == 0);
+            Assert(ray.origin.z == 0);
+
+            global_magnitude_threshold = (r32)MAX_RAY_MAG;        // Reset intersection threshold
             DetermineBackgroundColor(pix_x, pix_y, &pixel_color); // Reset pixel color
 //
 #if __RTX_AA__
@@ -268,15 +273,15 @@ main(int argc, char** argv)
 
                 v3Norm(&ray.direction);
                 TraceSpheres(&ray,
-                             &collision,
-                             &collision_mag_threshold,
-                             &collided,
+                             &intersection,
+                             &global_magnitude_threshold,
                              &returned_pixel_color,
                              sphere_arr,
                              num_spheres);
 
-                if (collided)
+                if (intersection.does_intersect)
                 {
+                    global_magnitude_threshold = intersection.magnitude;
                     aa_pixel_color_accumulator.x += returned_pixel_color.channel.R;
                     aa_pixel_color_accumulator.y += returned_pixel_color.channel.G;
                     aa_pixel_color_accumulator.z += returned_pixel_color.channel.B;
@@ -302,15 +307,15 @@ main(int argc, char** argv)
 
             v3Norm(&ray.direction);
             TraceSpheres(&ray,
-                         &collision,
-                         &collision_mag_threshold,
-                         &collided,
+                         &intersection,
+                         &global_magnitude_threshold,
                          &returned_pixel_color,
                          sphere_arr,
                          num_spheres);
 
-            if (collided)
+            if (intersection.does_intersect)
             {
+                global_magnitude_threshold = intersection.magnitude;
                 pixel_color.value = returned_pixel_color.value;
             }
 
