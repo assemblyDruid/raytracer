@@ -85,6 +85,7 @@ xcopy /y %APP_NAME%.exe ..\ >null && ^
 popd >null && ^
 rtx && ^
 start rtx.bmp
+rem start rtx.ppm
 
 :exit
 rem /I"%APP_INC_UM_PATH%" /I"%APP_INC_UCRT_PATH%" ^

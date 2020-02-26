@@ -47,7 +47,11 @@
 #define MAX_RAY_MAG           5.0f
 #define MIN_RAY_MAG           0.0f
 #define MAX_PPM_HEADER_SIZE   25
-#define MAX_PPM_TRIPPLET_SIZE 10
+#define MAX_PPM_TRIPPLET_SIZE 11
+
+// Coordinate Direction Coloring (Debug)
+#define RENDER_COORD_DIR     OFF
+#define COORD_DIR_PIX_WEIGHT 1
 
 #define CLAMP_MAX(value, max) if(value>max){value=max;}
 #define CLAMP_MIN(value, min) if(value<min){value=min;}
@@ -128,6 +132,7 @@ typedef union
 
     u32 value;
 } Color32;
+
 
 #ifdef _WIN32
 #pragma warning( push )
@@ -307,9 +312,23 @@ typedef struct
 } Sphere;
 
 
+
 //
 // Methods
 //
+_internal_ _inline_ u8
+Color32ChannelAdd(u8 A, u8 B)
+{
+    u16 C = A + B;
+    if (C <= 255)
+    {
+        return (u8)C;
+    }
+
+    return 255;
+}
+
+
 _internal_ _inline_ bool
 IsWithinTolerance(const r32 value, const r32 target_value)
 {
@@ -334,13 +353,39 @@ XorShift32()
 }
 
 
+_internal_ _inline_ r32
+NormalizeToRange(r32 min_source_range,
+                 r32 max_source_range,
+                 r32 min_target_range,
+                 r32 max_target_range,
+                 r32 num_to_normalize)
+{
+    Assert(max_source_range > min_source_range);
+    Assert(max_target_range > min_target_range);
+    Assert(max_source_range != min_source_range);
+    Assert(max_target_range != min_target_range);
+    Assert(num_to_normalize >= min_source_range &&
+           num_to_normalize <= max_source_range);
+
+    r32 ret = ((r32)(num_to_normalize - min_source_range) /
+               (r32)(max_source_range - min_source_range)) *
+        (max_target_range - min_target_range) + min_target_range;
+    return ret;
+}
+
+
 // Note: XorShift32State must be initialized to some value
 //       before using NormalBoundedXorShift32()
 _internal_ _inline_ r32
 NormalBoundedXorShift32()
 {
-    r32 rand = (r32)XorShift32();
-    return (1.0f / FLT_MAX * rand);
+    u32 max32 = ~(u32)0;
+    r32 rand  = (r32)XorShift32() + (r32)TOLERANCE;
+    return NormalizeToRange((r32)TOLERANCE,
+                            (r32)max32,
+                            (r32)TOLERANCE,
+                            1.0f,
+                            rand);
 }
 
 
