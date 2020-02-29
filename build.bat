@@ -77,7 +77,8 @@ rem )
 IF %ERRORLEVEL% NEQ 0 GOTO :exit
 mkdir msvc_landfill >nul 2>nul
 pushd msvc_landfill >nul
-cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Oi /W4 /WX /O2 /GL /MD /EHsc /nologo ^
+rem cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Od /Oi /W4 /WX /O2 /GL /MD /EHsc /nologo ^
+cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Oi /Qpar /Ot /W4 /WX /Ob2 /O2 /GL /MD /EHsc /nologo ^
 /I"%SCRIPT_DIR%" ^
 /link /SUBSYSTEM:CONSOLE /NXCOMPAT /MACHINE:x64 /NODEFAULTLIB:MSVCRTD ^
 User32.Lib shell32.lib odbccp32.lib && ^

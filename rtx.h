@@ -24,12 +24,17 @@
 #ifdef  __RTX_DEBUG__
 #define _inline_    /* INLINE REMOVED */
 #define _internal_  /* STATIC REMOVED */
-#define Assert assert
+#define Assert      assert
 #else
 #define _inline_    inline
 #define _internal_  static
 #define Assert      /* ASSERTION REMOVED */
 #endif // ifdef __RTX_DEBUG__
+
+// Antialiasing Settings
+#ifdef __RT_AA__
+#define __RT_AA__noise 5
+#endif // _RT_AA__
 
 // Endianness
 #ifndef __LSB__
@@ -56,7 +61,7 @@
 #define CLAMP_MAX(value, max) if(value>max){value=max;}
 #define CLAMP_MIN(value, min) if(value<min){value=min;}
 
-#include <math.h> // [ cfarvin::TODO ] [ cfarvin::REMOVE ]
+#include <math.h> // [ cfarvin::TODO< ] [ cfarvin::REMOVE ]
 #include <float.h>
 #include <assert.h>
 #include <stdint.h>
@@ -316,19 +321,6 @@ typedef struct
 //
 // Methods
 //
-_internal_ _inline_ u8
-Color32ChannelAdd(u8 A, u8 B)
-{
-    u16 C = A + B;
-    if (C <= 255)
-    {
-        return (u8)C;
-    }
-
-    return 255;
-}
-
-
 _internal_ _inline_ bool
 IsWithinTolerance(const r32 value, const r32 target_value)
 {
@@ -396,6 +388,7 @@ NormalRayDistLerp(const r32 old_value)
     return ((old_value - MIN_RAY_MAG) * (1.0f / FLT_MAX));
 }
 
+
 _internal_ _inline_ u8
 BindValueTo8BitColorChannel(const r32 value_min,
                             const r32 value_max,
@@ -403,8 +396,12 @@ BindValueTo8BitColorChannel(const r32 value_min,
 {
     Assert(value_max > value_min);
     Assert((value_max >= value) && (value_min <= value));
-    return (u8)(((value - value_min)/(value_max - value_min))
-                * (255.0f));
+
+    return (u8)NormalizeToRange(value_min,
+                                value_max,
+                                0.0f,
+                                255.0f,
+                                value);
 }
 
 
@@ -622,6 +619,8 @@ v3Dot(const v3* const a, const v3* const b)
     result += a->z * b->z;
     return result;
 }
+
+
 _internal_ _inline_ void
 v3Cross(const v3* const a,
         const v3* const b,
@@ -909,9 +908,9 @@ m4Mult(const m4* const a,
 // Intersection Calcultions
 //
 _internal_ _inline_ void
-IntersectSpheres(const Ray*             const ray,
-                 const Sphere*          const sphere,
-                 _mut_ RayIntersection* const intersection)
+IntersectSphere(const Ray*             const ray,
+                const Sphere*          const sphere,
+                _mut_ RayIntersection* const intersection)
 {
     Assert(ray && sphere && intersection);
     Assert(v3IsNorm(&ray->direction));
@@ -933,24 +932,38 @@ IntersectSpheres(const Ray*             const ray,
     r32 a = ray_dir_mag * ray_dir_mag;
     r32 b = 2.0f * (v3Dot(&ray->direction, &ray_to_sphere));
     r32 c = v3Dot(&ray_to_sphere, &ray_to_sphere) - sphere_radius_sq;
+    /* Assert(c > 0); */
+
     r32 discriminant = (b * b) - (4.0f * a * c);
-    Assert(c > 0);
+    if (discriminant >= 0.0f)
+    {
+        intersection->does_intersect = true;
+    }
+    else
+    {
+        intersection->does_intersect = false;
+    }
 
-    // Return value
-    intersection->does_intersect = discriminant >= 0;
 
+    // Build intersection data
     if (intersection->does_intersect)
     {
+        // Set intersection magnitude
         r32 magnitude = ((b * -1.0f) - (r32)sqrt(discriminant))
             / (2.0f * a);
+
+        // [ cfarvin::TODO ] Failing this assertion suddenly.
         Assert(magnitude >= 0);
+
         intersection->magnitude = magnitude;
 
+        // Set intersection position
         v3Set(&intersection->position,
               ray->origin.x + (magnitude*ray->direction.x),
               ray->origin.y + (magnitude*ray->direction.y),
               ray->origin.z + (magnitude*ray->direction.z));
 
+        // Set intersection normal vector
         v3Sub(&sphere->position,
               &intersection->position,
               &intersection->normal_vector);

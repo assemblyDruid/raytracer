@@ -23,20 +23,20 @@
 /* #define IMAGE_HEIGHT 27 */
 
 // Square
-#define IMAGE_WIDTH  400
-#define IMAGE_HEIGHT 400
+/* #define IMAGE_WIDTH  400 */
+/* #define IMAGE_HEIGHT 400 */
 
 // 720p
 /* #define IMAGE_WIDTH  1280 */
 /* #define IMAGE_HEIGHT 720 */
 
-// Full HD
+/* // Full HD */
 /* #define IMAGE_WIDTH  1920 */
 /* #define IMAGE_HEIGHT 1080 */
 
 // 4K
-/* #define IMAGE_WIDTH  3840 */
-/* #define IMAGE_HEIGHT 2160 */
+#define IMAGE_WIDTH  3840
+#define IMAGE_HEIGHT 2160
 
 #define ASPECT_RATIO  (r32)(IMAGE_WIDTH/(r32)IMAGE_HEIGHT)
 #define NUM_PIXELS    IMAGE_WIDTH*IMAGE_HEIGHT
@@ -173,13 +173,44 @@ Log()
     printf("Minimum ray mag:      %f\n", (r32)MIN_RAY_MAG);
     printf("Image height:         %d\n", IMAGE_HEIGHT);
     printf("Image width:          %d\n", IMAGE_WIDTH);
+    fflush(stdout);
 }
 
 
 _internal_ _inline_ void
+DetermineBackgroundColor(const size_t pix_x,
+                         const size_t pix_y,
+                         _mut_ Color32* const return_color)
+{
+    if (pix_x) {} // [ cfarvin::TEMP ] Silence unused variable warning
+    if (pix_y) {} // [ cfarvin::TEMP ] Silence unused variable warning
+    Assert(return_color);
+
+    // Gradient
+    return_color->value = 0;
+    return_color->channel.R = BindValueTo8BitColorChannel(0.0f,
+                                                          (r32)IMAGE_HEIGHT + 2,
+                                                          (r32)pix_y + 1);
+    return_color->channel.G = BindValueTo8BitColorChannel(0.0f,
+                                                          (r32)IMAGE_WIDTH + 2,
+                                                          (r32)pix_x + 1);
+    return_color->channel.B = BindValueTo8BitColorChannel(0.0f,
+                                                          (r32)(pix_x + pix_y + 2),
+                                                          (r32)(pix_x + 1));
+
+
+
+    // Solid Red
+    /* return_color->value = 0x00FF0000; */
+
+    // Solid Black
+    /* return_color->value = 0x00000000; */
+}
+
+_internal_ _inline_ void
 TraceSphere(const Ray*             const ray,
             _mut_ RayIntersection* const intersection,
-            const r32*             const global_magnitude_threshold,
+            _mut_ r32*             const global_magnitude_threshold,
             _mut_ Color32*         const return_color,
             const Sphere*          const sphere)
 {
@@ -190,16 +221,11 @@ TraceSphere(const Ray*             const ray,
     Assert(global_magnitude_threshold);
     Assert(*global_magnitude_threshold >= 0);
 
-    r32 local_magnitude_threshold = *global_magnitude_threshold;
-    intersection->does_intersect = false;
-
-    IntersectSpheres(ray, sphere, intersection);
-
+    IntersectSphere(ray, sphere, intersection);
     if (intersection->does_intersect &&
-        (intersection->magnitude <= local_magnitude_threshold))
+        (intersection->magnitude < *global_magnitude_threshold))
     {
-        intersection->does_intersect = true;
-        local_magnitude_threshold = intersection->magnitude;
+        *global_magnitude_threshold = intersection->magnitude;
         return_color->value = sphere->material.color.value;
     }
 }
@@ -208,7 +234,7 @@ TraceSphere(const Ray*             const ray,
 _internal_ _inline_ void
 TraceSphereArray(const Ray*             const ray,
                  _mut_ RayIntersection* const intersection,
-                 const r32*             const global_magnitude_threshold,
+                 _mut_ r32*             const global_magnitude_threshold,
                  _mut_ Color32*         const return_color,
                  const Sphere*          const sphere_arr,
                  const size_t                 num_spheres)
@@ -219,45 +245,49 @@ TraceSphereArray(const Ray*             const ray,
     Assert(sphere_arr);
     Assert(global_magnitude_threshold);
     Assert(*global_magnitude_threshold >= 0);
-    Assert(num_spheres >= 1); // Use TraceSphere( ... );
+    Assert(num_spheres >= 1); // See: TraceSphere( ... );
 
-    for (size_t sphere_index = 0; sphere_index <= num_spheres; sphere_index++)
+    bool any_intersection_found    = false;
+    intersection->does_intersect   = false;
+    r32  local_magnitude_threshold = *global_magnitude_threshold;
+    for (size_t sphere_index = 0; sphere_index < num_spheres; sphere_index++)
     {
-        TraceSphere(ray,
-                    intersection,
-                    global_magnitude_threshold,
-                    return_color,
-                    &sphere_arr[sphere_index]);
+        IntersectSphere(ray, &sphere_arr[sphere_index], intersection);
+        if (intersection->does_intersect &&
+            (intersection->magnitude < local_magnitude_threshold))
+        {
+            any_intersection_found = true;
+            local_magnitude_threshold = intersection->magnitude;
+            return_color->value = (sphere_arr[sphere_index]).material.color.value;
+        }
     }
-}
 
-_internal_ _inline_ void
-DetermineBackgroundColor(size_t pix_x,
-                         size_t pix_y,
-                         Color32* const return_color)
-{
-    if (pix_x) {} // [ cfarvin::TEMP ] Silence unused variable warning
-    if (pix_y) {} // [ cfarvin::TEMP ] Silence unused variable warning
-    Assert(return_color);
-
-    // Red Gradient
-    return_color->value = 0;
-    return_color->channel.R = BindValueTo8BitColorChannel(0.0f,
-                                                          (r32)IMAGE_HEIGHT,
-                                                          (r32)pix_y);
-
-    // Solid Red
-    /* return_color->value = 0x00FF0000; */
+    if (any_intersection_found &&
+        local_magnitude_threshold < *global_magnitude_threshold)
+    {
+        intersection->does_intersect = true;
+    }
 }
 
 
 _internal_ _inline_ void
 SetRayDirectionByPixelCoordAA(_mut_ Ray* const ray,
                               const size_t pix_x,
-                              const size_t pix_y)
+                              const size_t pix_y,
+                              const r32     aa_noise_level)
 {
-    const r32 xOr_contribution_x = NormalBoundedXorShift32();
-    const r32 xOr_contribution_y = NormalBoundedXorShift32();
+    const r32 xOr_contribution_x = NormalizeToRange((r32)TOLERANCE,
+                                                    (r32)(~(u32)0),
+                                                    (r32)TOLERANCE,
+                                                    aa_noise_level,
+                                                    (r32)XorShift32() + (r32)TOLERANCE);
+
+    const r32 xOr_contribution_y = NormalizeToRange((r32)TOLERANCE,
+                                                    (r32)(~(u32)0),
+                                                    (r32)TOLERANCE,
+                                                    aa_noise_level,
+                                                    (r32)XorShift32() + (r32)TOLERANCE);
+
     const r32 x_numerator = (r32)pix_x + xOr_contribution_x;
     const r32 y_numerator = (r32)pix_y + xOr_contribution_y;
 
@@ -275,6 +305,69 @@ SetRayDirectionByPixelCoord(_mut_ Ray* const ray,
     ray->direction.x = ((pix_x/(r32)IMAGE_WIDTH) - 0.5f ) * ASPECT_RATIO;
     ray->direction.y = (pix_y/(r32)IMAGE_HEIGHT) - 0.5f;
     ray->direction.z = -1;
+}
+
+
+_internal_ Sphere*
+CreateRandomSpheres(size_t num_spheres)
+{
+    Sphere* sphere_arr = CreateSpheres(num_spheres);
+    for (size_t sphere_index = 0; sphere_index < num_spheres; sphere_index++)
+    {
+        // Positions
+        sphere_arr[sphere_index].position.x = NormalizeToRange((r32)TOLERANCE,
+                                                               (r32)(~(u32)0),
+                                                               -1.0f,
+                                                               +1.0f,
+                                                               (r32)XorShift32());
+
+        sphere_arr[sphere_index].position.y = NormalizeToRange((r32)TOLERANCE,
+                                                               (r32)(~(u32)0),
+                                                               -1.0f,
+                                                               +1.0f,
+                                                               (r32)XorShift32());
+
+        sphere_arr[sphere_index].position.z = NormalizeToRange((r32)TOLERANCE,
+                                                               (r32)(~(u32)0),
+                                                               -2.0f,
+                                                               -1.0f,
+                                                               (r32)XorShift32());
+
+        // Radius
+        sphere_arr[sphere_index].radius = NormalizeToRange((r32)TOLERANCE,
+                                                           (r32)(~(u32)0),
+                                                           0.15f,
+                                                           0.30f,
+                                                           (r32)XorShift32());
+
+        // Materials
+        sphere_arr[sphere_index].material.color.channel.R =
+            BindValueTo8BitColorChannel((r32)TOLERANCE,
+                                        (r32)(~(u32)0),
+                                        (r32)XorShift32());
+        sphere_arr[sphere_index].material.color.channel.G =
+            BindValueTo8BitColorChannel((r32)TOLERANCE,
+                                        (r32)(~(u32)0),
+                                        (r32)XorShift32());
+        sphere_arr[sphere_index].material.color.channel.B =
+            BindValueTo8BitColorChannel((r32)TOLERANCE,
+                                        (r32)(~(u32)0),
+                                        (r32)XorShift32());
+
+        printf("  Sphere [%zd]:\n", sphere_index);
+        printf("    Position: (%2.2f, %2.2f, %2.2f)\n",
+               sphere_arr[sphere_index].position.x,
+               sphere_arr[sphere_index].position.y,
+               sphere_arr[sphere_index].position.z);
+        printf("    Radius: %2.2f\n", sphere_arr[sphere_index].radius);
+        printf("    Material.color: (%d, %d, %d)\n:",
+               sphere_arr[sphere_index].material.color.channel.R,
+               sphere_arr[sphere_index].material.color.channel.G,
+               sphere_arr[sphere_index].material.color.channel.B);
+        fflush(stdout);
+    }
+
+    return sphere_arr;
 }
 
 
@@ -299,22 +392,25 @@ main(int argc, char** argv)
     ray.direction.z = -1.0f;
 
     // Init spheres
-    size_t num_spheres = 2;
-    Sphere* sphere_arr = CreateSpheres(num_spheres);
-    sphere_arr[0].position.x = +0.40f;
-    sphere_arr[0].position.y = +0.75f;
-    sphere_arr[0].position.z = -1.10f;
-    sphere_arr[0].radius     = +0.25f;
-    sphere_arr[0].material.color.value = 0x000000FF;
+    size_t num_spheres = 50;
+    Sphere* sphere_arr = CreateRandomSpheres(num_spheres);
 
-    sphere_arr[1].position.x = -0.40f;
-    sphere_arr[1].position.y = -0.75f;
-    sphere_arr[1].position.z = -1.10f;
-    sphere_arr[1].radius     = +0.25f;
-    sphere_arr[1].material.color.value = 0x0000FF00;
+    /* Sphere* sphere_arr = CreateSpheres(num_spheres); */
+    /* sphere_arr[0].position.x = +0.40f; */
+    /* sphere_arr[0].position.y = +0.75f; */
+    /* sphere_arr[0].position.z = -1.10f; */
+    /* sphere_arr[0].radius     = +0.25f; */
+    /* sphere_arr[0].material.color.value = 0x000000FF; */
+
+    /* sphere_arr[1].position.x = -0.40f; */
+    /* sphere_arr[1].position.y = -0.75f; */
+    /* sphere_arr[1].position.z = -1.10f; */
+    /* sphere_arr[1].radius     = +0.25f; */
+    /* sphere_arr[1].material.color.value = 0x0000FF00; */
 
 #if __RTX_AA__
-    size_t  aa_rays_per_pixel      = 5;
+    r32  aa_noise_level            = 2.5;
+    size_t  aa_rays_per_pixel      = 50;
     v3 aa_pixel_color_accumulator  = { 0 };
 #endif // __RTX_AA_
 
@@ -333,12 +429,8 @@ main(int argc, char** argv)
     {
         for (size_t pix_x = 0; pix_x < IMAGE_WIDTH; pix_x++)
         {
-            Assert(ray.origin.x == 0);
-            Assert(ray.origin.y == 0);
-            Assert(ray.origin.z == 0);
-
-            global_magnitude_threshold = (r32)MAX_RAY_MAG;        // Reset intersection threshold
-            DetermineBackgroundColor(pix_x, pix_y, &pixel_color); // Reset pixel color
+            global_magnitude_threshold = (r32)MAX_RAY_MAG;        // Reset closest pixel distance
+            DetermineBackgroundColor(pix_x, pix_y, &pixel_color); // Reset default pixel color
 //
 #if __RTX_AA__
 //
@@ -346,37 +438,40 @@ main(int argc, char** argv)
 
             for (size_t aa_ray = 0; aa_ray < aa_rays_per_pixel; aa_ray++)
             {
-                for (size_t sphere_index = 0; sphere_index < num_spheres; sphere_index++)
+                SetRayDirectionByPixelCoordAA(&ray, pix_x, pix_y, aa_noise_level);
+                v3Norm(&ray.direction);
+
+                TraceSphereArray(&ray,
+                                 &intersection,
+                                 &global_magnitude_threshold,
+                                 &returned_pixel_color,
+                                 sphere_arr,
+                                 num_spheres);
+
+                if (intersection.does_intersect)
                 {
-                    SetRayDirectionByPixelCoordAA(&ray, pix_x, pix_y);
-                    v3Norm(&ray.direction);
-
-                    TraceSphere(&ray,
-                                &intersection,
-                                &global_magnitude_threshold,
-                                &returned_pixel_color,
-                                &sphere_arr[sphere_index]);
-
-                    if (intersection.does_intersect)
-                    {
-                        global_magnitude_threshold = intersection.magnitude;
-
-                        aa_pixel_color_accumulator.x += returned_pixel_color.channel.R;
-                        aa_pixel_color_accumulator.y += returned_pixel_color.channel.G;
-                        aa_pixel_color_accumulator.z += returned_pixel_color.channel.B;
-                    }
-                    else
-                    {
-                        aa_pixel_color_accumulator.x += pixel_color.channel.R;
-                        aa_pixel_color_accumulator.y += pixel_color.channel.G;
-                        aa_pixel_color_accumulator.z += pixel_color.channel.B;
-                    }
+                    aa_pixel_color_accumulator.channel.R += returned_pixel_color.channel.R;
+                    aa_pixel_color_accumulator.channel.G += returned_pixel_color.channel.G;
+                    aa_pixel_color_accumulator.channel.B += returned_pixel_color.channel.B;
                 }
+                else
+                {
+                    aa_pixel_color_accumulator.channel.R += pixel_color.channel.R;
+                    aa_pixel_color_accumulator.channel.G += pixel_color.channel.G;
+                    aa_pixel_color_accumulator.channel.B += pixel_color.channel.B;
+                }
+
+                // Remote possibility that a channel value may overflow.
+                Assert( (FLT_MAX - aa_pixel_color_accumulator.x) > 255 );
+                Assert( (FLT_MAX - aa_pixel_color_accumulator.y) > 255 );
+                Assert( (FLT_MAX - aa_pixel_color_accumulator.z) > 255 );
+
             } // end: for (size_t aa_ray = 0; aa_ray < aa_rays_per_pixel; aa_ray++)
 
-            pixel_color.channel.R = (u8)(aa_pixel_color_accumulator.x / aa_rays_per_pixel);
-            pixel_color.channel.G = (u8)(aa_pixel_color_accumulator.y / aa_rays_per_pixel);
-            pixel_color.channel.B = (u8)(aa_pixel_color_accumulator.z / aa_rays_per_pixel);
+            pixel_color.channel.R = (u8)(aa_pixel_color_accumulator.channel.R / aa_rays_per_pixel);
+            pixel_color.channel.G = (u8)(aa_pixel_color_accumulator.channel.G / aa_rays_per_pixel);
+            pixel_color.channel.B = (u8)(aa_pixel_color_accumulator.channel.B / aa_rays_per_pixel);
+            /* pixel_color.channel.A = 0xFF; */
 //
 #else // __RTX_AA__ (OFF)
 //
@@ -387,12 +482,11 @@ main(int argc, char** argv)
                              &intersection,
                              &global_magnitude_threshold,
                              &returned_pixel_color,
-                             &sphere_arr,
+                             sphere_arr,
                              num_spheres);
 
             if (intersection.does_intersect)
             {
-                global_magnitude_threshold = intersection.magnitude;
                 pixel_color.value = returned_pixel_color.value;
             }
 //
@@ -429,14 +523,15 @@ main(int argc, char** argv)
 //
 #endif // RENDER_COORD_DIR
 //
-
             pixel_array[pixel_array_idx].value = pixel_color.value;
             pixel_array_idx++;
         } // end: for (size_t pix_x = 0; pix_x < IMAGE_WIDTH; pix_x++)
     } // end: for (size_t pix_y = 0; pix_y < IMAGE_HEIGHT; pix_y++)
 
+    // Write to file
     WriteBitmap32(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rtx.bmp");
-    WritePPM32(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rtx.ppm");
+    /* WritePPM32(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rtx.ppm"); */
+
     printf("[ success ]\n");
     return 0;
 } // end: main(int argc, char** argv)
