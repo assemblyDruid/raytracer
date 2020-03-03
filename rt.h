@@ -67,7 +67,8 @@
 
 // Antialiasing Settings
 #ifdef __RT_AA__
-#define __RT_AA__noise 5
+#define __RT_AA__noise 1.55
+#define __RT_AA__RPP   10
 #endif // _RT_AA__
 
 // Endianness
@@ -83,8 +84,6 @@
 // Min Max
 #define TOLERANCE             0.00001f
 #define _PI_                  3.14159f
-#define _PLANK_CONST_         0.000000000000000000000000000000000662607015
-#define _C_AIR_               299700000
 #define MAX_RAY_MAG           5.0f
 #define MIN_RAY_MAG           0.0f
 #define MAX_PPM_HEADER_SIZE   25
@@ -97,8 +96,12 @@
 // Non-debug decorators
 #define __RT_call__      /* STDCALL */
 
-#define CLAMP_MAX(value, max) if(value>max){value=max;}
-#define CLAMP_MIN(value, min) if(value<min){value=min;}
+//
+// Physical Constants
+//
+static double _PLANK_CONST_ = 0.000000000000000000000000000000000662607015;
+static double _C_AIR_       = 299700000.0;
+static double _C_VACCUME_   = 299792458.0;
 
 
 //
@@ -696,16 +699,15 @@ GetEnergyByDominantWavelength_eV(const r64 wave_length_nm,
 {
     Assert(wave_length_nm);
     Assert(energy);
-
-    r64 wave_length_meters = wave_length_nm / 1000000000;
-    r64 Joules = ((_PLANK_CONST_ * _C_AIR_) / wave_length_meters);
-    r64 eV = ((1000000 * wave_length_meters) / 1.2398) * Joules;
-    *energy = (r32)eV;
+    r64 wave_length_meters = wave_length_nm * 0.000000001;
+    r64 Joules = ((_PLANK_CONST_ * _C_VACCUME_) / wave_length_meters);
+    r64 eV = Joules * (6241509000000000000 / 0.9999999450036585);
+    *energy = eV;
 }
 
 __RT_internal__ __RT_inline__ void
 GetEnergyByColorRGB_eV(const Color32_RGB* const rgb,
-                    _mut_ r64*         const energy)
+                       _mut_ r64*         const energy)
 {
     Assert(rgb);
     Assert(energy);
@@ -725,7 +727,7 @@ GetEnergyByColorHSV(const Color32_HSV* const hsv,
     Assert(hsv);
     Assert(energy);
 
-    r32 wave_length_nm = 0;
+    r64 wave_length_nm = 0;
     GetDominantWavelengthByColor(hsv, &wave_length_nm);
     GetEnergyByDominantWavelength_eV(wave_length_nm, energy);
 }
@@ -770,57 +772,6 @@ CreateSpheres(const size_t sphere_count)
     return (Sphere*)calloc(sphere_count, sizeof(Sphere));
 }
 
-
-/* __RT_internal__ Sphere */
-/* CreateSphere(v3*       const position, */
-/*              r32             radius, */
-/*              Material* const material, */
-/*              size_t*   const sphere_count_to_update) */
-/* { */
-/*     Sphere sphere = { 0 }; */
-/*     sphere.position = *position; */
-/*     sphere.radius = radius; */
-/*     sphere.material = *material; */
-
-/*     if (sphere_count_to_update) */
-/*     { */
-/*         (*sphere_count_to_update)++; */
-/*     } */
-
-/*     return sphere; */
-/* } */
-
-
-/* __RT_internal__ Sphere */
-/* CreateSphereRaw(r32 xpos, */
-/*                 r32 ypos, */
-/*                 r32 zpos, */
-/*                 r32 radius, */
-/*                 u32 color, */
-/*                 size_t* const sphere_count_to_update) */
-/* { */
-/*     Sphere sphere = { 0 }; */
-/*     sphere.position.x = xpos; */
-/*     sphere.position.y = ypos; */
-/*     sphere.position.z = zpos; */
-/*     sphere.radius = radius; */
-/*     sphere.material.color.value = color; */
-
-/*     if (sphere_count_to_update) */
-/*     { */
-/*         (*sphere_count_to_update)++; */
-/*     } */
-
-/*     return sphere; */
-/* } */
-
-
-/* typedef struct */
-/* { */
-/*     v3       position; */
-/*     r32      length; */
-/*     Material material; */
-/* } Cube; */
 
 
 //
@@ -1296,14 +1247,6 @@ IntersectSphere(const Ray*             const ray,
               &intersection->position,
               &intersection->normal_vector);
 
-        // Correct normal vector direction if needed.
-        // We seek the normal opposite the direction of the ray.
-        /* if (sphere->radius > magnitude) */
-        /* { */
-        /*     v3ScalarMul(&intersection->normal_vector, */
-        /*                 -1.0f, */
-        /*                 &intersection->normal_vector); */
-        /* } */
         v3Norm(&intersection->normal_vector);
     }
 }
@@ -2034,3 +1977,86 @@ Log()
 }
 
 #endif // __RT_H__
+
+/*
+//
+// ARCHIVE
+//
+/*
+
+/* Sphere* sphere_arr = CreateSpheres(num_spheres); */
+/* sphere_arr[0].position.x = +0.40f; */
+/* sphere_arr[0].position.y = +0.75f; */
+/* sphere_arr[0].position.z = -1.10f; */
+/* sphere_arr[0].radius     = +0.25f; */
+/* sphere_arr[0].material.color.value = 0x000000FF; */
+
+/* sphere_arr[1].position.x = -0.40f; */
+/* sphere_arr[1].position.y = -0.75f; */
+/* sphere_arr[1].position.z = -1.10f; */
+/* sphere_arr[1].radius     = +0.25f; */
+/* sphere_arr[1].material.color.value = 0x0000FF00; */
+
+// From IntersectSphere( ... )
+// Correct normal vector direction if needed.
+// We seek the normal opposite the direction of the ray.
+/* if (sphere->radius > magnitude) */
+/* { */
+/*     v3ScalarMul(&intersection->normal_vector, */
+/*                 -1.0f, */
+/*                 &intersection->normal_vector); */
+/* } */
+
+/* __RT_internal__ Sphere */
+/* CreateSphere(v3*       const position, */
+/*              r32             radius, */
+/*              Material* const material, */
+/*              size_t*   const sphere_count_to_update) */
+/* { */
+/*     Sphere sphere = { 0 }; */
+/*     sphere.position = *position; */
+/*     sphere.radius = radius; */
+/*     sphere.material = *material; */
+
+/*     if (sphere_count_to_update) */
+/*     { */
+/*         (*sphere_count_to_update)++; */
+/*     } */
+
+/*     return sphere; */
+/* } */
+
+
+/* __RT_internal__ Sphere */
+/* CreateSphereRaw(r32 xpos, */
+/*                 r32 ypos, */
+/*                 r32 zpos, */
+/*                 r32 radius, */
+/*                 u32 color, */
+/*                 size_t* const sphere_count_to_update) */
+/* { */
+/*     Sphere sphere = { 0 }; */
+/*     sphere.position.x = xpos; */
+/*     sphere.position.y = ypos; */
+/*     sphere.position.z = zpos; */
+/*     sphere.radius = radius; */
+/*     sphere.material.color.value = color; */
+
+/*     if (sphere_count_to_update) */
+/*     { */
+/*         (*sphere_count_to_update)++; */
+/*     } */
+
+/*     return sphere; */
+/* } */
+
+
+/* typedef struct */
+/* { */
+/*     v3       position; */
+/*     r32      length; */
+/*     Material material; */
+/* } Cube; */
+
+/* #define CLAMP_MAX(value, max) if(value>max){value=max;} */
+/* #define CLAMP_MIN(value, min) if(value<min){value=min;} */

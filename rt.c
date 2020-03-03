@@ -3,28 +3,10 @@
 #include <stdio.h>
 #include <rt.h>
 
-// [ cfarvin::TODO ]
-// These answers are wrong.
-void teststuff()
-{
-    Color32_RGB red = { 0 };
-    red.channel.R = 255;
-
-    r32 energy;
-    GetEnergyByColorRGB_eV(&red, &energy);
-
-    printf("Energy: %f\n", energy);
-    fflush(stdout);
-    Assert(false);
-}
-
-
 int
 main(int argc, char** argv)
 {
     if (argc || argv) {} // [ cfarvin::TEMP ] Silence unused variable warning
-
-    teststuff();
 
     // Init XorShift
     XorShift32State = 42;
@@ -42,25 +24,10 @@ main(int argc, char** argv)
     ray.direction.z = -1.0f;
 
     // Init spheres
-    size_t num_spheres = 25;
+    size_t num_spheres = 3;
     Sphere* sphere_arr = CreateRandomSpheres(num_spheres);
 
-    /* Sphere* sphere_arr = CreateSpheres(num_spheres); */
-    /* sphere_arr[0].position.x = +0.40f; */
-    /* sphere_arr[0].position.y = +0.75f; */
-    /* sphere_arr[0].position.z = -1.10f; */
-    /* sphere_arr[0].radius     = +0.25f; */
-    /* sphere_arr[0].material.color.value = 0x000000FF; */
-
-    /* sphere_arr[1].position.x = -0.40f; */
-    /* sphere_arr[1].position.y = -0.75f; */
-    /* sphere_arr[1].position.z = -1.10f; */
-    /* sphere_arr[1].radius     = +0.25f; */
-    /* sphere_arr[1].material.color.value = 0x0000FF00; */
-
 #if __RT_AA__
-    r32  aa_noise_level            = 2.5;
-    size_t  aa_rays_per_pixel      = 15;
     v3 aa_pixel_color_accumulator  = { 0 };
 #endif // __RT_AA_
 
@@ -86,9 +53,9 @@ main(int argc, char** argv)
 //
             v3Set(&aa_pixel_color_accumulator, 0, 0, 0); // Reset AA accumulator
 
-            for (size_t aa_ray = 0; aa_ray < aa_rays_per_pixel; aa_ray++)
+            for (size_t aa_ray = 0; aa_ray < __RT_AA__RPP; aa_ray++)
             {
-                SetRayDirectionByPixelCoordAA(&ray, pix_x, pix_y, aa_noise_level);
+                SetRayDirectionByPixelCoordAA(&ray, pix_x, pix_y, (r32)__RT_AA__noise);
                 v3Norm(&ray.direction);
 
                 TraceSphereArray(&ray,
@@ -118,9 +85,9 @@ main(int argc, char** argv)
 
             } // end: for (size_t aa_ray = 0; aa_ray < aa_rays_per_pixel; aa_ray++)
 
-            pixel_color.channel.R = (u8)(aa_pixel_color_accumulator.channel.R / aa_rays_per_pixel);
-            pixel_color.channel.G = (u8)(aa_pixel_color_accumulator.channel.G / aa_rays_per_pixel);
-            pixel_color.channel.B = (u8)(aa_pixel_color_accumulator.channel.B / aa_rays_per_pixel);
+            pixel_color.channel.R = (u8)(aa_pixel_color_accumulator.channel.R / __RT_AA__RPP);
+            pixel_color.channel.G = (u8)(aa_pixel_color_accumulator.channel.G / __RT_AA__RPP);
+            pixel_color.channel.B = (u8)(aa_pixel_color_accumulator.channel.B / __RT_AA__RPP);
             /* pixel_color.channel.A = 0xFF; */
 //
 #else // __RT_AA__ (OFF)

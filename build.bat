@@ -1,6 +1,6 @@
 @echo off
 @SET SCRIPT_DIR=%cd%
-@SET APP_NAME="rtx"
+@SET APP_NAME="rt"
 @SET APP_ARCH=x64
 @SET APP_SDK_VER=10.0.18362.0
 
@@ -77,18 +77,19 @@ rem )
 IF %ERRORLEVEL% NEQ 0 GOTO :exit
 mkdir msvc_landfill >nul 2>nul
 pushd msvc_landfill >nul
-rem cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Od /Oi /W4 /WX /O2 /GL /MD /EHsc /nologo ^
 cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Oi /Qpar /Ot /W4 /WX /Ob2 /O2 /GL /MD /EHsc /nologo ^
 /I"%SCRIPT_DIR%" ^
 /link /SUBSYSTEM:CONSOLE /NXCOMPAT /MACHINE:x64 /NODEFAULTLIB:MSVCRTD ^
 User32.Lib shell32.lib odbccp32.lib && ^
 xcopy /y %APP_NAME%.exe ..\ >null && ^
 popd >null && ^
-rtx && ^
-start rtx.bmp
-rem start rtx.ppm
+rt && ^
+start rt.bmp
+rem start rt.ppm
 
 :exit
 rem /I"%APP_INC_UM_PATH%" /I"%APP_INC_UCRT_PATH%" ^
 rem /LIBPATH:"%APP_LIB_UM_PATH%" ^
 rem /LIBPATH:"%APP_LIB_UCRT_PATH%" ^
+
+rem cl %SCRIPT_DIR%\\%APP_NAME%.c /TC /Od /Oi /W4 /WX /O2 /GL /MD /EHsc /nologo ^
