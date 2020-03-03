@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#define NUM_SPHERES 6
 
 //
 // Image Properties
@@ -51,8 +52,9 @@
 #endif // _mut_
 
 // Modes
-#define __RT_AA__    ON
-#define __RT_DEBUG__ ON
+#define __RT_AA__            ON
+#define __RT_DEBUG__         OFF
+#define __RT_AA__reflections ON
 
 // Debug
 #ifdef  __RT_DEBUG__
@@ -67,8 +69,9 @@
 
 // Antialiasing Settings
 #ifdef __RT_AA__
-#define __RT_AA__noise 1.55
-#define __RT_AA__RPP   10
+#define __RT_AA__noise            2.15
+#define __RT_AA__RPP              300
+#define __RT_AA__reflection_noise 0.55
 #endif // _RT_AA__
 
 // Endianness
@@ -87,7 +90,7 @@
 #define MAX_RAY_MAG           5.0f
 #define MIN_RAY_MAG           0.0f
 #define MAX_PPM_HEADER_SIZE   25
-#define MAX_PPM_TRIPPLET_SIZE 11
+#define MAX_PPM_TRIPPLET_SIZE 15
 
 // Coordinate Direction Coloring (Debug)
 #define RENDER_COORD_DIR     OFF
@@ -311,6 +314,23 @@ typedef union
 #endif // WIN32
 
 
+typedef enum
+{
+    MATERIAL_CLASS_NONE,
+    MATERIAL_CLASS_DIFFUSE,
+    MATERIAL_CLASS_METAL
+} MaterialClass;
+
+
+typedef struct
+{
+    u16           max_generated_rays;
+    MaterialClass material_class;
+    r32           absorbtion_coefficient;
+    Color32_RGB   color;
+} Material;
+
+
 typedef struct
 {
     v3 origin;
@@ -324,6 +344,9 @@ typedef struct
     v3   normal_vector;
     r32  magnitude;
     bool does_intersect;
+
+    // [ cfarvin::REVISIT ]
+    Material intersection_material;
 } RayIntersection;
 
 
@@ -344,23 +367,6 @@ typedef struct
     const r32 width;
     const r32 z_dist;
 } ImagePlane;
-
-
-typedef enum
-{
-    MATERIAL_CLASS_NONE,
-    MATERIAL_CLASS_DIFFUSE,
-    MATERIAL_CLASS_METAL
-} MaterialClass;
-
-
-typedef struct
-{
-    u8            max_generated_rays;
-    MaterialClass material_class;
-    r32           absorbtion_coefficient;
-    Color32_RGB   color;
-} Material;
 
 
 typedef struct
@@ -1231,8 +1237,8 @@ IntersectSphere(const Ray*             const ray,
         r32 magnitude = ((b * -1.0f) - (r32)sqrt(discriminant))
             / (2.0f * a);
 
-        // [ cfarvin::TODO ] Failing this assertion suddenly.
-        Assert(magnitude >= 0);
+        // [ cfarvin::NOTE ] Bounces may be in any direction
+        //Assert(magnitude >= 0);
 
         intersection->magnitude = magnitude;
 
@@ -1248,6 +1254,17 @@ IntersectSphere(const Ray*             const ray,
               &intersection->normal_vector);
 
         v3Norm(&intersection->normal_vector);
+
+        // [ cfarvin::REVSIT ]
+        // Set intersection material
+        intersection->intersection_material.max_generated_rays =
+            sphere->material.max_generated_rays;
+        intersection->intersection_material.material_class =
+            sphere->material.material_class;
+        intersection->intersection_material.absorbtion_coefficient =
+            sphere->material.absorbtion_coefficient;
+        intersection->intersection_material.color =
+            sphere->material.color;
     }
 }
 
@@ -1264,13 +1281,12 @@ TraceSphere(const Ray*             const ray,
     Assert(return_color);
     Assert(sphere);
     Assert(global_magnitude_threshold);
-    Assert(*global_magnitude_threshold >= 0);
 
     IntersectSphere(ray, sphere, intersection);
     if (intersection->does_intersect &&
-        (intersection->magnitude < *global_magnitude_threshold))
+        (fabs(intersection->magnitude) < fabs(*global_magnitude_threshold)))
     {
-        *global_magnitude_threshold = intersection->magnitude;
+        *global_magnitude_threshold = (r32)fabs(intersection->magnitude);
         return_color->value = sphere->material.color.value;
     }
 }
@@ -1289,7 +1305,6 @@ TraceSphereArray(const Ray*             const ray,
     Assert(return_color);
     Assert(sphere_arr);
     Assert(global_magnitude_threshold);
-    Assert(*global_magnitude_threshold >= 0);
     Assert(num_spheres >= 1); // See: TraceSphere( ... );
 
     RayIntersection closestIntersection = { 0 };
@@ -1310,16 +1325,82 @@ TraceSphereArray(const Ray*             const ray,
                   intersection->normal_vector.y,
                   intersection->normal_vector.z);
 
-            return_color->value = (sphere_arr[sphere_index]).material.color.value;
+            return_color->value =
+                (sphere_arr[sphere_index]).material.color.value;
         }
     }
 
     if (closestIntersection.does_intersect &&
-        closestIntersection.magnitude < *global_magnitude_threshold)
+        fabs(closestIntersection.magnitude) < fabs(*global_magnitude_threshold))
     {
-
         intersection->does_intersect = true;
     }
+
+    //
+#ifdef __RT_AA__reflections
+//
+    if (intersection->does_intersect)
+    {
+        u16              bounces             = 0;
+        r64             photon_energy       = 0;
+        RayIntersection bounce_intersection = { 0 };
+        Ray             bounce_ray          = { 0 };
+
+        GetEnergyByColorRGB_eV(return_color, &photon_energy);
+        photon_energy /=
+            intersection->intersection_material.absorbtion_coefficient;
+
+        while (photon_energy > 0)
+        {
+            if (bounces >
+                intersection->intersection_material.max_generated_rays)
+            {
+                break;
+            }
+
+            v3Set(&bounce_ray.origin,
+                  intersection->normal_vector.x,
+                  intersection->normal_vector.y,
+                  intersection->normal_vector.z);
+
+            r32 xrand = (r32)XorShift32() + TOLERANCE;
+            r32 yrand = (r32)XorShift32() + TOLERANCE;
+            r32 zrand = (r32)XorShift32() + TOLERANCE;
+            v3SetAndNorm(&bounce_ray.direction,
+                         ray->direction.x +
+                         NormalizeToRange((r32)TOLERANCE,
+                                          (r32)(~(u32)0),
+                                          (r32)TOLERANCE,
+                                          (r32)__RT_AA__reflection_noise,
+                                          xrand),
+                         ray->direction.y +
+                         NormalizeToRange((r32)TOLERANCE,
+                                          (r32)(~(u32)0),
+                                          (r32)TOLERANCE,
+                                          (r32)__RT_AA__reflection_noise,
+                                          yrand),
+                         ray->direction.z +
+                         NormalizeToRange((r32)TOLERANCE,
+                                          (r32)(~(u32)0),
+                                          (r32)TOLERANCE,
+                                          (r32)__RT_AA__reflection_noise,
+                                          zrand));
+
+            TraceSphereArray(&bounce_ray,
+                             &bounce_intersection,
+                             &intersection->magnitude,
+                             return_color,
+                             sphere_arr,
+                             num_spheres);
+
+            bounces++;
+        }
+    }
+
+//
+#endif // __RT_AA__reflections
+//
+
 }
 
 
@@ -1493,21 +1574,20 @@ DetermineBackgroundColor(const size_t pix_x,
 __RT_internal__ __RT_inline__ void
 SetRayDirectionByPixelCoordAA(_mut_ Ray*   const ray,
                               const size_t       pix_x,
-                              const size_t       pix_y,
-                              const r32          aa_noise_level)
+                              const size_t       pix_y)
 {
     const r32 xOr_contribution_x =
         NormalizeToRange((r32)TOLERANCE,
                          (r32)(~(u32)0),
                          (r32)TOLERANCE,
-                         aa_noise_level,
+                         (r32)__RT_AA__noise,
                          (r32)XorShift32() + (r32)TOLERANCE);
 
     const r32 xOr_contribution_y =
         NormalizeToRange((r32)TOLERANCE,
                          (r32)(~(u32)0),
                          (r32)TOLERANCE,
-                         aa_noise_level,
+                         (r32)__RT_AA__noise,
                          (r32)XorShift32() + (r32)TOLERANCE);
 
     const r32 x_numerator = (r32)pix_x + xOr_contribution_x;

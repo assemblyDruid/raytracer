@@ -24,8 +24,7 @@ main(int argc, char** argv)
     ray.direction.z = -1.0f;
 
     // Init spheres
-    size_t num_spheres = 3;
-    Sphere* sphere_arr = CreateRandomSpheres(num_spheres);
+    Sphere* sphere_arr = CreateRandomSpheres(NUM_SPHERES);
 
 #if __RT_AA__
     v3 aa_pixel_color_accumulator  = { 0 };
@@ -55,7 +54,7 @@ main(int argc, char** argv)
 
             for (size_t aa_ray = 0; aa_ray < __RT_AA__RPP; aa_ray++)
             {
-                SetRayDirectionByPixelCoordAA(&ray, pix_x, pix_y, (r32)__RT_AA__noise);
+                SetRayDirectionByPixelCoordAA(&ray, pix_x, pix_y);
                 v3Norm(&ray.direction);
 
                 TraceSphereArray(&ray,
@@ -63,7 +62,7 @@ main(int argc, char** argv)
                                  &global_magnitude_threshold,
                                  &returned_pixel_color,
                                  sphere_arr,
-                                 num_spheres);
+                                 NUM_SPHERES);
 
                 if (intersection.does_intersect)
                 {
@@ -147,7 +146,7 @@ main(int argc, char** argv)
 
     // Write to file
     WriteBitmap32(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rt.bmp");
-    /* WritePPM32(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rt.ppm"); */
+    WritePPM32(pixel_array, IMAGE_WIDTH, IMAGE_HEIGHT, "rt.ppm");
 
     printf("[ success ]\n");
     return 0;
