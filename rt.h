@@ -52,7 +52,7 @@
 #endif // _mut_
 
 // Modes
-#define __RT_AA__            ON
+#define __RT_AA__            OFF
 #define __RT_DEBUG__         OFF
 #define __RT_AA__reflections ON
 
@@ -70,8 +70,8 @@
 // Antialiasing Settings
 #ifdef __RT_AA__
 #define __RT_AA__noise            2.15
-#define __RT_AA__RPP              300
-#define __RT_AA__reflection_noise 0.55
+#define __RT_AA__RPP              150
+#define __RT_AA__reflection_noise 0.75
 #endif // _RT_AA__
 
 // Endianness
@@ -104,7 +104,7 @@
 //
 static double _PLANK_CONST_ = 0.000000000000000000000000000000000662607015;
 static double _C_AIR_       = 299700000.0;
-static double _C_VACCUME_   = 299792458.0;
+// static double _C_VACCUME_   = 299792458.0;
 
 
 //
@@ -576,7 +576,7 @@ RGB32ToHSV32(const Color32_RGB* const rgb_source,
 }
 
 
-__RT_internal__ _inline void
+__RT_internal__ __RT_inline__ void
 HSV32ToRGB32(const Color32_HSV* const hsv_source,
              _mut_ Color32_RGB* const rgb_result)
 {
@@ -706,7 +706,7 @@ GetEnergyByDominantWavelength_eV(const r64 wave_length_nm,
     Assert(wave_length_nm);
     Assert(energy);
     r64 wave_length_meters = wave_length_nm * 0.000000001;
-    r64 Joules = ((_PLANK_CONST_ * _C_VACCUME_) / wave_length_meters);
+    r64 Joules = ((_PLANK_CONST_ * _C_AIR_) / wave_length_meters);
     r64 eV = Joules * (6241509000000000000 / 0.9999999450036585);
     *energy = eV;
 }
@@ -1346,6 +1346,7 @@ TraceSphereArray(const Ray*             const ray,
         RayIntersection bounce_intersection = { 0 };
         Ray             bounce_ray          = { 0 };
 
+        Color32_RGB bounce_color = { 0 };
         GetEnergyByColorRGB_eV(return_color, &photon_energy);
         photon_energy /=
             intersection->intersection_material.absorbtion_coefficient;
@@ -1389,9 +1390,18 @@ TraceSphereArray(const Ray*             const ray,
             TraceSphereArray(&bounce_ray,
                              &bounce_intersection,
                              &intersection->magnitude,
-                             return_color,
+                             &bounce_color,
                              sphere_arr,
                              num_spheres);
+
+            if (bounce_intersection.does_intersect &&
+                bounce_intersection.normal_vector.z >
+                intersection->normal_vector.z)
+            {
+                return_color->channel.R = bounce_color.channel.R;
+                return_color->channel.G = bounce_color.channel.G;
+                return_color->channel.B = bounce_color.channel.B;
+            }
 
             bounces++;
         }
@@ -1505,14 +1515,21 @@ GetDefaultMaterialByClass(_mut_ Material*     const material,
     {
     case MATERIAL_CLASS_DIFFUSE:
     {
-        material->max_generated_rays = 10;
+        material->max_generated_rays = 1;
         material->absorbtion_coefficient = (r32)0.85;
         break;
     }
+    case MATERIAL_CLASS_METAL:
+    {
+        material->max_generated_rays = 1;
+        material->absorbtion_coefficient = (r32)0.05;
+        break;
+    }
+
     case MATERIAL_CLASS_NONE:
     {
-        material->max_generated_rays = 20;
-        material->absorbtion_coefficient = (r32)0.35;
+        material->max_generated_rays = 0;
+        material->absorbtion_coefficient = (r32)0.0f;
         break;
     }
     }
@@ -2058,11 +2075,13 @@ Log()
 
 #endif // __RT_H__
 
-/*
+//
+#if 0
+//
+
 //
 // ARCHIVE
 //
-/*
 
 /* Sphere* sphere_arr = CreateSpheres(num_spheres); */
 /* sphere_arr[0].position.x = +0.40f; */
@@ -2140,3 +2159,7 @@ Log()
 
 /* #define CLAMP_MAX(value, max) if(value>max){value=max;} */
 /* #define CLAMP_MIN(value, min) if(value<min){value=min;} */
+
+//
+#endif // 0
+//

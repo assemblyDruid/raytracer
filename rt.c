@@ -99,7 +99,7 @@ main(int argc, char** argv)
                              &global_magnitude_threshold,
                              &returned_pixel_color,
                              sphere_arr,
-                             num_spheres);
+                             NUM_SPHERES);
 
             if (intersection.does_intersect)
             {
