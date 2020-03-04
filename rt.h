@@ -21,14 +21,14 @@
 /* #define IMAGE_WIDTH  27 */
 /* #define IMAGE_HEIGHT 27 */
 
-#define IMAGE_WIDTH  400
-#define IMAGE_HEIGHT 400
+/* #define IMAGE_WIDTH  400 */
+/* #define IMAGE_HEIGHT 400 */
 
 /* #define IMAGE_WIDTH  1280 */
 /* #define IMAGE_HEIGHT 720 */
 
-/* #define IMAGE_WIDTH  1920 */
-/* #define IMAGE_HEIGHT 1080 */
+#define IMAGE_WIDTH  1920
+#define IMAGE_HEIGHT 1080
 
 /* #define IMAGE_WIDTH  3840 */
 /* #define IMAGE_HEIGHT 2160 */
@@ -39,39 +39,39 @@
 //
 // Macros
 //
-#ifndef ON
-#define ON 1
-#endif // _ON_
+#ifndef __RT_ON__
+#define __RT_ON__ 1
+#endif // ___RT_ON___
 
-#ifndef OFF
-#define OFF 0
-#endif // _OFF_
+#ifndef __RT_OFF__
+#define __RT_OFF__ 0
+#endif // ___RT_OFF___
 
 #ifndef _mut_
 #define _mut_ /* NOTICE: MUTABLE */
 #endif // _mut_
 
 // Modes
-#define __RT_AA__            OFF
-#define __RT_DEBUG__         OFF
-#define __RT_AA__reflections ON
+#define __RT_AA__            __RT_ON__
+#define __RT_DEBUG__         __RT_OFF__
 
 // Debug
-#ifdef  __RT_DEBUG__
+#if  __RT_DEBUG__
 #define __RT_inline__    /* INLINE REMOVED */
 #define __RT_internal__  /* STATIC REMOVED */
-#define Assert           assert
-#else
+#define __RT_ASSERT__    assert
+#else // __RT_DEBUG__
 #define __RT_inline__    inline
 #define __RT_internal__  static
-#define Assert           /* ASSERTION REMOVED */
-#endif // ifdef __RT_DEBUG__
+#define __RT_ASSERT__    /* ASSERTION REMOVED */
+#endif // __RT_DEBUG__
 
 // Antialiasing Settings
-#ifdef __RT_AA__
+#if __RT_AA__
 #define __RT_AA__noise            2.15
-#define __RT_AA__RPP              150
-#define __RT_AA__reflection_noise 0.75
+#define __RT_AA__RPP              25
+#define __RT_AA__reflections      __RT_ON__
+#define __RT_AA__reflection_noise 0.105
 #endif // _RT_AA__
 
 // Endianness
@@ -93,16 +93,22 @@
 #define MAX_PPM_TRIPPLET_SIZE 15
 
 // Coordinate Direction Coloring (Debug)
-#define RENDER_COORD_DIR     OFF
+#define RENDER_COORD_DIR     __RT_OFF__
 #define COORD_DIR_PIX_WEIGHT 1
 
 // Non-debug decorators
 #define __RT_call__      /* STDCALL */
 
+// Compiler Passifiers
+#ifdef _WIN32
+#define restrict __restrict
+#endif // WIN32
+
+
 //
 // Physical Constants
 //
-static double _PLANK_CONST_ = 0.000000000000000000000000000000000662607015;
+static double _PLANK_C__RT_ON__ST_ = 0.000000000000000000000000000000000662607015;
 static double _C_AIR_       = 299700000.0;
 // static double _C_VACCUME_   = 299792458.0;
 
@@ -316,7 +322,7 @@ typedef union
 
 typedef enum
 {
-    MATERIAL_CLASS_NONE,
+    MATERIAL_CLASS_N__RT_ON__E,
     MATERIAL_CLASS_DIFFUSE,
     MATERIAL_CLASS_METAL
 } MaterialClass;
@@ -379,6 +385,19 @@ typedef struct
 
 
 //
+// Prototypes (as needed)
+//
+__RT_internal__ __RT_inline__ void
+TraceSphereArray(const Ray*             restrict const ray,
+                 _mut_ RayIntersection* restrict const intersection,
+                 _mut_ r32*             restrict const global_magnitude_threshold,
+                 _mut_ Color32_RGB*     restrict const return_color,
+                 const Sphere*          restrict const sphere_arr,
+                 const size_t                          num_spheres);
+
+
+
+//
 // Methods
 //
 __RT_internal__ __RT_inline__ bool
@@ -412,12 +431,12 @@ NormalizeToRange(r32 min_source_range,
                  r32 max_target_range,
                  r32 num_to_normalize)
 {
-    Assert(max_source_range > min_source_range);
-    Assert(max_target_range > min_target_range);
-    Assert(max_source_range != min_source_range);
-    Assert(max_target_range != min_target_range);
-    Assert(num_to_normalize >= min_source_range &&
-           num_to_normalize <= max_source_range);
+    __RT_ASSERT__(max_source_range > min_source_range);
+    __RT_ASSERT__(max_target_range > min_target_range);
+    __RT_ASSERT__(max_source_range != min_source_range);
+    __RT_ASSERT__(max_target_range != min_target_range);
+    __RT_ASSERT__(num_to_normalize >= min_source_range &&
+                  num_to_normalize <= max_source_range);
 
     r32 ret = ((r32)(num_to_normalize - min_source_range) /
                (r32)(max_source_range - min_source_range)) *
@@ -444,7 +463,7 @@ NormalBoundedXorShift32()
 __RT_internal__ __RT_inline__ r32
 NormalRayDistLerp(const r32 old_value)
 {
-    Assert(MAX_RAY_MAG > MIN_RAY_MAG);
+    __RT_ASSERT__(MAX_RAY_MAG > MIN_RAY_MAG);
     return ((old_value - MIN_RAY_MAG) * (1.0f / FLT_MAX));
 }
 
@@ -454,8 +473,8 @@ BindValueTo8BitColorChannel(const r32 value_min,
                             const r32 value_max,
                             const r32 value)
 {
-    Assert(value_max > value_min);
-    Assert((value_max >= value) && (value_min <= value));
+    __RT_ASSERT__(value_max > value_min);
+    __RT_ASSERT__((value_max >= value) && (value_min <= value));
 
     return (u8)NormalizeToRange(value_min,
                                 value_max,
@@ -466,11 +485,11 @@ BindValueTo8BitColorChannel(const r32 value_min,
 
 
 __RT_internal__ __RT_inline__ void
-RGB32ToHSV32(const Color32_RGB* const rgb_source,
-             _mut_ Color32_HSV* const hsv_result)
+RGB32ToHSV32(const Color32_RGB* restrict const rgb_source,
+             _mut_ Color32_HSV* restrict const hsv_result)
 {
-    Assert(rgb_source);
-    Assert(hsv_result);
+    __RT_ASSERT__(rgb_source);
+    __RT_ASSERT__(hsv_result);
 
     // Normalize [ TOLERANCE, 1.0f ]
     r32 rgb_r = NormalizeToRange(0.0f,
@@ -519,13 +538,13 @@ RGB32ToHSV32(const Color32_RGB* const rgb_source,
     }
 
     // Assign chroma
-    Assert(rgb_max >= rgb_min);
+    __RT_ASSERT__(rgb_max >= rgb_min);
     chroma = rgb_max - rgb_min;
 
     // Asign value
     r32 value = rgb_max;
-    Assert(value >= 0.0f);
-    Assert(value <= 360.0f);
+    __RT_ASSERT__(value >= 0.0f);
+    __RT_ASSERT__(value <= 360.0f);
 
     // Assign hue
     r32 hue = 0.0f;
@@ -547,7 +566,7 @@ RGB32ToHSV32(const Color32_RGB* const rgb_source,
     }
     else
     {
-        Assert(false);
+        __RT_ASSERT__(false);
     }
 
     if (hue < 0.0f)
@@ -555,8 +574,8 @@ RGB32ToHSV32(const Color32_RGB* const rgb_source,
         hue += 360.0f;
     }
 
-    Assert(hue >= 0.0f);
-    Assert(hue <= 360.0f);
+    __RT_ASSERT__(hue >= 0.0f);
+    __RT_ASSERT__(hue <= 360.0f);
 
     // Assign saturation
     r32 saturation = 0.0f;
@@ -570,38 +589,38 @@ RGB32ToHSV32(const Color32_RGB* const rgb_source,
     hsv_result->V = value;
 
     // [ cfarvin::DEBUG ] [ cfarvin::REMOVE ]
-    Assert(hsv_result->H == hue);
-    Assert(hsv_result->S == saturation);
-    Assert(hsv_result->V == value);
+    __RT_ASSERT__(hsv_result->H == hue);
+    __RT_ASSERT__(hsv_result->S == saturation);
+    __RT_ASSERT__(hsv_result->V == value);
 }
 
 
 __RT_internal__ __RT_inline__ void
-HSV32ToRGB32(const Color32_HSV* const hsv_source,
-             _mut_ Color32_RGB* const rgb_result)
+HSV32ToRGB32(const Color32_HSV* restrict const hsv_source,
+             _mut_ Color32_RGB* restrict const rgb_result)
 {
-    Assert(rgb_result);
-    Assert(hsv_source);
-    Assert(hsv_source->H >= 0.0f);
-    Assert(hsv_source->H <= 360.0f);
-    Assert(hsv_source->S >= 0.0f);
-    Assert(hsv_source->S <= 1.0f);
-    Assert(hsv_source->V >= 0.0f);
-    Assert(hsv_source->V <= 1.0f);
+    __RT_ASSERT__(rgb_result);
+    __RT_ASSERT__(hsv_source);
+    __RT_ASSERT__(hsv_source->H >= 0.0f);
+    __RT_ASSERT__(hsv_source->H <= 360.0f);
+    __RT_ASSERT__(hsv_source->S >= 0.0f);
+    __RT_ASSERT__(hsv_source->S <= 1.0f);
+    __RT_ASSERT__(hsv_source->V >= 0.0f);
+    __RT_ASSERT__(hsv_source->V <= 1.0f);
 
     // Assign hue_prime
     r32 hue_prime = hsv_source->H / 60.0f;
 
     // Assign chroma
     r32 chroma = hsv_source->V * hsv_source->S;
-    Assert(chroma >= 0.0f);
-    Assert(chroma <= 1.0f);
+    __RT_ASSERT__(chroma >= 0.0f);
+    __RT_ASSERT__(chroma <= 1.0f);
 
     // Assign 2nd largest color component
     r32 secondary_color = chroma *
         (1.0f - (r32)fabs(fmod(hue_prime, 2.0f) - 1.0f));
-    Assert(secondary_color >= 0.0f);
-    Assert(secondary_color <= 1.0f);
+    __RT_ASSERT__(secondary_color >= 0.0f);
+    __RT_ASSERT__(secondary_color <= 1.0f);
 
     // Compute rgb components
     r32 rgb_r = 0.0f;
@@ -610,13 +629,13 @@ HSV32ToRGB32(const Color32_HSV* const hsv_source,
 
     bool build_color_channels = true;
     r32 lightness_component = hsv_source->V - chroma;
-    Assert(lightness_component >= 0.0f);
+    __RT_ASSERT__(lightness_component >= 0.0f);
     if (hue_prime < 0.0f)
     {
         build_color_channels = false;
     }
 
-    Assert(hue_prime <= 6.0f);
+    __RT_ASSERT__(hue_prime <= 6.0f);
     if (build_color_channels)
     {
         if (hue_prime >= 0.0f && hue_prime <= 1.0f)
@@ -655,12 +674,12 @@ HSV32ToRGB32(const Color32_HSV* const hsv_source,
     rgb_g += lightness_component;
     rgb_b += lightness_component;
 
-    Assert(rgb_r >= 0.0f);
-    Assert(rgb_g >= 0.0f);
-    Assert(rgb_b >= 0.0f);
-    Assert(rgb_r <= 1.0f);
-    Assert(rgb_g <= 1.0f);
-    Assert(rgb_b <= 1.0f);
+    __RT_ASSERT__(rgb_r >= 0.0f);
+    __RT_ASSERT__(rgb_g >= 0.0f);
+    __RT_ASSERT__(rgb_b >= 0.0f);
+    __RT_ASSERT__(rgb_r <= 1.0f);
+    __RT_ASSERT__(rgb_g <= 1.0f);
+    __RT_ASSERT__(rgb_b <= 1.0f);
 
     // Assign rgb components
     rgb_result->channel.R = (u8)round(NormalizeToRange(0.0f,
@@ -684,11 +703,11 @@ HSV32ToRGB32(const Color32_HSV* const hsv_source,
 
 
 __RT_internal__ __RT_inline__ void
-GetDominantWavelengthByColor(const Color32_HSV* const hsv,
-                             _mut_ r64*         const wave_length_nm)
+GetDominantWavelengthByColor(const Color32_HSV* restrict const hsv,
+                             _mut_ r64*         restrict const wave_length_nm)
 {
-    Assert(hsv);
-    Assert(wave_length_nm);
+    __RT_ASSERT__(hsv);
+    __RT_ASSERT__(wave_length_nm);
 
     r32 red_wavelength    = 682.5f;
     r32 violet_wavelength = 415.0f;
@@ -701,22 +720,22 @@ GetDominantWavelengthByColor(const Color32_HSV* const hsv,
 
 __RT_internal__ __RT_inline__ void
 GetEnergyByDominantWavelength_eV(const r64 wave_length_nm,
-                                 _mut_ r64* const energy)
+                                 _mut_ r64* restrict const energy)
 {
-    Assert(wave_length_nm);
-    Assert(energy);
+    __RT_ASSERT__(wave_length_nm);
+    __RT_ASSERT__(energy);
     r64 wave_length_meters = wave_length_nm * 0.000000001;
-    r64 Joules = ((_PLANK_CONST_ * _C_AIR_) / wave_length_meters);
+    r64 Joules = ((_PLANK_C__RT_ON__ST_ * _C_AIR_) / wave_length_meters);
     r64 eV = Joules * (6241509000000000000 / 0.9999999450036585);
     *energy = eV;
 }
 
 __RT_internal__ __RT_inline__ void
-GetEnergyByColorRGB_eV(const Color32_RGB* const rgb,
-                       _mut_ r64*         const energy)
+GetEnergyByColorRGB_eV(const Color32_RGB* restrict const rgb,
+                       _mut_ r64*         restrict const energy)
 {
-    Assert(rgb);
-    Assert(energy);
+    __RT_ASSERT__(rgb);
+    __RT_ASSERT__(energy);
 
     Color32_HSV hsv;
     r64 wave_length_nm;
@@ -727,11 +746,11 @@ GetEnergyByColorRGB_eV(const Color32_RGB* const rgb,
 
 
 __RT_internal__ __RT_inline__ void
-GetEnergyByColorHSV(const Color32_HSV* const hsv,
-                    _mut_ r64*         const energy)
+GetEnergyByColorHSV(const Color32_HSV* restrict const hsv,
+                    _mut_ r64*         restrict const energy)
 {
-    Assert(hsv);
-    Assert(energy);
+    __RT_ASSERT__(hsv);
+    __RT_ASSERT__(energy);
 
     r64 wave_length_nm = 0;
     GetDominantWavelengthByColor(hsv, &wave_length_nm);
@@ -741,18 +760,18 @@ GetEnergyByColorHSV(const Color32_HSV* const hsv,
 
 __RT_internal__ __RT_inline__ void
 DegreesToRadians(const r32 degrees,
-                 _mut_ r32* const result)
+                 _mut_ r32* restrict const result)
 {
-    Assert(result);
+    __RT_ASSERT__(result);
     *result = degrees * (_PI_ / 180.0f);
 }
 
 
 __RT_internal__ __RT_inline__ void
 RadiansToDegrees(const r32 radians,
-                 _mut_ r32* const result)
+                 _mut_ r32* restrict const result)
 {
-    Assert(result);
+    __RT_ASSERT__(result);
     *result = radians * (180.0f / _PI_);
 }
 
@@ -762,12 +781,12 @@ CreatePixelArray(const size_t image_width,
                  const size_t image_height,
                  const size_t bit_depth)
 {
-    Assert(image_width);
-    Assert(image_height);
-    Assert(bit_depth >= 8);
+    __RT_ASSERT__(image_width);
+    __RT_ASSERT__(image_height);
+    __RT_ASSERT__(bit_depth >= 8);
     void* ret = calloc((image_width*image_height),
                        (bit_depth * sizeof(u8)));
-    Assert(ret);
+    __RT_ASSERT__(ret);
     return ret;
 }
 
@@ -784,12 +803,12 @@ CreateSpheres(const size_t sphere_count)
 // v3
 //
 __RT_internal__ __RT_inline__ void
-v3Set(_mut_ v3* const result,
+v3Set(_mut_ v3* restrict const result,
       const r32 x,
       const r32 y,
       const r32 z)
 {
-    Assert(result);
+    __RT_ASSERT__(result);
     result->x = x;
     result->y = y;
     result->z = z;
@@ -797,9 +816,10 @@ v3Set(_mut_ v3* const result,
 
 
 __RT_internal__ __RT_inline__ bool
-v3IsEqual(const v3* const a, const v3* const b)
+v3IsEqual(const v3* restrict const a,
+          const v3* restrict const b)
 {
-    Assert(a && b);
+    __RT_ASSERT__(a && b);
     return ( IsWithinTolerance(a->x, b->x) &&
              IsWithinTolerance(a->y, b->y) &&
              IsWithinTolerance(a->z, b->z) );
@@ -807,9 +827,9 @@ v3IsEqual(const v3* const a, const v3* const b)
 
 
 __RT_internal__ __RT_inline__ r32
-v3Mag(const v3* const a)
+v3Mag(const v3* restrict const a)
 {
-    Assert(a);
+    __RT_ASSERT__(a);
     r32 x2 = a->x * a->x;
     r32 y2 = a->y * a->y;
     r32 z2 = a->z * a->z;
@@ -819,16 +839,16 @@ v3Mag(const v3* const a)
 
 
 __RT_internal__ __RT_inline__ bool
-v3IsNorm(const v3* const a)
+v3IsNorm(const v3* restrict const a)
 {
     return(IsWithinTolerance(v3Mag(a), 1.0f));
 }
 
 
 __RT_internal__ __RT_inline__ void
-v3Norm(v3* const a)
+v3Norm(v3* restrict const a)
 {
-    Assert(a);
+    __RT_ASSERT__(a);
     r32 magnitude = v3Mag(a);
     if (magnitude)
     {
@@ -838,19 +858,19 @@ v3Norm(v3* const a)
     }
     else
     {
-        /* Assert(false); */ // [ cfarvin::UNDO ]
+        /* __RT_ASSERT__(false); */ // [ cfarvin::UNDO ]
         v3Set(a, 0.0f, 0.0f, 0.0f);
     }
 }
 
 
 __RT_internal__ __RT_inline__ void
-v3SetAndNorm(_mut_ v3* const result,
+v3SetAndNorm(_mut_ v3* restrict const result,
              const r32 x,
              const r32 y,
              const r32 z)
 {
-    Assert(result);
+    __RT_ASSERT__(result);
     result->x = x;
     result->y = y;
     result->z = z;
@@ -859,11 +879,11 @@ v3SetAndNorm(_mut_ v3* const result,
 
 
 __RT_internal__ __RT_inline__ void
-v3Add(const v3* const a,
-      const v3* const b,
-      _mut_ v3* const result)
+v3Add(const v3* restrict const a,
+      const v3* restrict const b,
+      _mut_ v3* restrict const result)
 {
-    Assert(a && b && result);
+    __RT_ASSERT__(a && b && result);
     result->x = a->x + b->x;
     result->y = a->y + b->y;
     result->z = a->z + b->z;
@@ -871,11 +891,11 @@ v3Add(const v3* const a,
 
 
 __RT_internal__ __RT_inline__ void
-v3Sub(const v3* const a,
-      const v3* const b,
-      _mut_ v3* const result)
+v3Sub(const v3* restrict const a,
+      const v3* restrict const b,
+      _mut_ v3* restrict const result)
 {
-    Assert(a && b && result);
+    __RT_ASSERT__(a && b && result);
     result->x = a->x - b->x;
     result->y = a->y - b->y;
     result->z = a->z - b->z;
@@ -883,11 +903,11 @@ v3Sub(const v3* const a,
 
 
 __RT_internal__ __RT_inline__ void
-v3ScalarMul(const v3* const a,
-            const r32 scalar,
-            _mut_ v3* const result)
+v3ScalarMul(const v3* restrict const a,
+            const r32                scalar,
+            _mut_ v3* restrict const result)
 {
-    Assert(a && result);
+    __RT_ASSERT__(a && result);
     result->x = a->x * scalar;
     result->y = a->y * scalar;
     result->z = a->z * scalar;
@@ -895,9 +915,10 @@ v3ScalarMul(const v3* const a,
 
 
 __RT_internal__ __RT_inline__ r32
-v3Dot(const v3* const a, const v3* const b)
+v3Dot(const v3* restrict const a,
+      const v3* restrict const b)
 {
-    Assert(a && b);
+    __RT_ASSERT__(a && b);
     r32 result = 0;
     result += a->x * b->x;
     result += a->y * b->y;
@@ -907,11 +928,11 @@ v3Dot(const v3* const a, const v3* const b)
 
 
 __RT_internal__ __RT_inline__ void
-v3Cross(const v3* const a,
-        const v3* const b,
-        _mut_ v3* const result)
+v3Cross(const v3* restrict const a,
+        const v3* restrict const b,
+        _mut_ v3* restrict const result)
 {
-    Assert(a && b && result);
+    __RT_ASSERT__(a && b && result);
     r32 i = ((a->y * b->z) - (a->z * b->y));
     r32 j = ((a->z * b->x) - (a->x * b->z));
     r32 k = ((a->x * b->y) - (a->y * b->x));
@@ -920,11 +941,11 @@ v3Cross(const v3* const a,
 
 
 __RT_internal__ __RT_inline__ void
-v3CrossAndNorm(const v3* const a,
-               const v3* const b,
-               _mut_ v3* const result)
+v3CrossAndNorm(const v3* restrict const a,
+               const v3* restrict const b,
+               _mut_ v3* restrict const result)
 {
-    Assert(a && b && result);
+    __RT_ASSERT__(a && b && result);
     v3Cross(a, b, result);
     v3Norm(result);
 }
@@ -934,13 +955,13 @@ v3CrossAndNorm(const v3* const a,
 // v4
 //
 __RT_internal__ __RT_inline__ void
-v4Set(v4* const result,
+v4Set(v4* restrict const result,
       const r32 x,
       const r32 y,
       const r32 z,
       const r32 w)
 {
-    Assert(result);
+    __RT_ASSERT__(result);
     result->x = x;
     result->y = y;
     result->z = z;
@@ -949,9 +970,10 @@ v4Set(v4* const result,
 
 
 __RT_internal__ __RT_inline__ bool
-v4IsEqual(const v4* const a, const v4* const b)
+v4IsEqual(const v4* restrict const a,
+          const v4* restrict const b)
 {
-    Assert(a && b);
+    __RT_ASSERT__(a && b);
     return (IsWithinTolerance(a->x, b->x) &&
             IsWithinTolerance(a->y, b->y) &&
             IsWithinTolerance(a->z, b->z) &&
@@ -962,7 +984,7 @@ v4IsEqual(const v4* const a, const v4* const b)
 __RT_internal__ __RT_inline__ r32
 v4Mag(const v4* const a)
 {
-    Assert(a);
+    __RT_ASSERT__(a);
     r32 x2 = a->x * a->x;
     r32 y2 = a->y * a->y;
     r32 z2 = a->z * a->z;
@@ -973,16 +995,16 @@ v4Mag(const v4* const a)
 
 
 __RT_internal__ __RT_inline__ bool
-v4IsNorm(const v4* const a)
+v4IsNorm(const v4* restrict const a)
 {
     return(IsWithinTolerance(v4Mag(a), 1.0f));
 }
 
 
 __RT_internal__ __RT_inline__ void
-v4Norm(_mut_ v4* const a)
+v4Norm(_mut_ v4* restrict const a)
 {
-    Assert(a);
+    __RT_ASSERT__(a);
     r32 magnitude = v4Mag(a);
     if (magnitude)
     {
@@ -993,20 +1015,20 @@ v4Norm(_mut_ v4* const a)
     }
     else
     {
-        Assert(false);
+        __RT_ASSERT__(false);
         v4Set(a, 0.0f, 0.0f, 0.0f, 0.0f);
     }
 }
 
 
 __RT_internal__ __RT_inline__ void
-v4SetAndNorm(_mut_ v4* const result,
+v4SetAndNorm(_mut_ v4* restrict const result,
              const r32 x,
              const r32 y,
              const r32 z,
              const r32 w)
 {
-    Assert(result);
+    __RT_ASSERT__(result);
     result->x = x;
     result->y = y;
     result->z = z;
@@ -1016,11 +1038,11 @@ v4SetAndNorm(_mut_ v4* const result,
 
 
 __RT_internal__ __RT_inline__ void
-v4Add(const v4* const a,
-      const v4* const b,
-      _mut_ v4* const result)
+v4Add(const v4* restrict const a,
+      const v4* restrict const b,
+      _mut_ v4* restrict const result)
 {
-    Assert(a && b && result);
+    __RT_ASSERT__(a && b && result);
     result->x = a->x + b->x;
     result->y = a->y + b->y;
     result->z = a->z + b->z;
@@ -1029,11 +1051,11 @@ v4Add(const v4* const a,
 
 
 __RT_internal__ __RT_inline__ void
-v4Sub(const v4* const a,
-      const v4* const b,
-      _mut_ v4* const result)
+v4Sub(const v4* restrict const a,
+      const v4* restrict const b,
+      _mut_ v4* restrict const result)
 {
-    Assert(a && b && result);
+    __RT_ASSERT__(a && b && result);
     result->x = a->x - b->x;
     result->y = a->y - b->y;
     result->z = a->z - b->z;
@@ -1042,11 +1064,11 @@ v4Sub(const v4* const a,
 
 
 __RT_internal__ __RT_inline__ void
-v4ScalarMul(const v4* const a,
+v4ScalarMul(const v4* restrict const a,
             const r32 scalar,
-            _mut_ v4* const result)
+            _mut_ v4* restrict const result)
 {
-    Assert(a && result);
+    __RT_ASSERT__(a && result);
     result->x = a->x * scalar;
     result->y = a->y * scalar;
     result->z = a->z * scalar;
@@ -1055,9 +1077,10 @@ v4ScalarMul(const v4* const a,
 
 
 __RT_internal__ __RT_inline__ r32
-v4Dot(const v4* const a, const v4* const b)
+v4Dot(const v4* restrict const a,
+      const v4* restrict const b)
 {
-    Assert(a && b);
+    __RT_ASSERT__(a && b);
     r32 result = 0;
     result += a->x * b->x;
     result += a->y * b->y;
@@ -1071,9 +1094,10 @@ v4Dot(const v4* const a, const v4* const b)
 // m3
 //
 __RT_internal__ void
-m3Set(_mut_ m3* const a, const r32 b)
+m3Set(_mut_ m3* restrict const a,
+      const r32 b)
 {
-    Assert(a);
+    __RT_ASSERT__(a);
     for (uint8_t idx = 0; idx < 9; idx++)
     {
         a->arr[idx] = b;
@@ -1082,9 +1106,10 @@ m3Set(_mut_ m3* const a, const r32 b)
 
 
 __RT_internal__ bool
-m3IsEqual(const m3* const a, const m3* const b)
+m3IsEqual(const m3* restrict const a,
+          const m3* restrict const b)
 {
-    Assert(a && b);
+    __RT_ASSERT__(a && b);
     return( (v3IsEqual(&a->i, &b->i)) &&
             (v3IsEqual(&a->j, &b->j)) &&
             (v3IsEqual(&a->k, &b->k)) );
@@ -1093,9 +1118,9 @@ m3IsEqual(const m3* const a, const m3* const b)
 
 // [ cfarvin::TODO ] Measure & improve
 __RT_internal__ void
-m3Ident(m3* const result)
+m3Ident(_mut_ m3* restrict const result)
 {
-    Assert(result);
+    __RT_ASSERT__(result);
     for (uint8_t idx = 0; idx < 9; idx++)
     {
         result->arr[idx] = 0;
@@ -1109,11 +1134,11 @@ m3Ident(m3* const result)
 
 
 __RT_internal__ __RT_inline__ void
-m3Mult(const m3* const a,
-       const m3* const b,
-       _mut_ m3* const result)
+m3Mult(const m3* restrict const a,
+       const m3* restrict const b,
+       _mut_ m3* restrict const result)
 {
-    Assert(a && b && result);
+    __RT_ASSERT__(a && b && result);
     for (uint8_t col = 0; col < 3; col++)
     {
         for (uint8_t row = 0; row < 3; row++)
@@ -1133,7 +1158,7 @@ m3Mult(const m3* const a,
 __RT_internal__ void
 m4Set(_mut_ m4* const a, const r32 b)
 {
-    Assert(a);
+    __RT_ASSERT__(a);
     for (uint8_t idx = 0; idx < 16; idx++)
     {
         a->arr[idx] = b;
@@ -1144,7 +1169,7 @@ m4Set(_mut_ m4* const a, const r32 b)
 __RT_internal__ bool
 m4IsEqual(const m4* const a, const m4* const b)
 {
-    Assert(a && b);
+    __RT_ASSERT__(a && b);
     return( (v4IsEqual(&a->i, &b->i)) &&
             (v4IsEqual(&a->j, &b->j)) &&
             (v4IsEqual(&a->k, &b->k)) &&
@@ -1156,7 +1181,7 @@ m4IsEqual(const m4* const a, const m4* const b)
 __RT_internal__ void
 m4Ident(_mut_ m4* const result)
 {
-    Assert(result);
+    __RT_ASSERT__(result);
     for (uint8_t idx = 0; idx < 16; idx++)
     {
         result->arr[idx] = 0;
@@ -1170,11 +1195,11 @@ m4Ident(_mut_ m4* const result)
 
 
 __RT_internal__ __RT_inline__ void
-m4Mult(const m4* const a,
-       const m4* const b,
-       _mut_ m4* const result)
+m4Mult(const m4* restrict const a,
+       const m4* restrict const b,
+       _mut_ m4* restrict const result)
 {
-    Assert(a && b && result);
+    __RT_ASSERT__(a && b && result);
     for (uint8_t col = 0; col < 4; col++)
     {
         for (uint8_t row = 0; row < 4; row++)
@@ -1193,12 +1218,12 @@ m4Mult(const m4* const a,
 // Intersection Calcultions
 //
 __RT_internal__ __RT_inline__ void
-IntersectSphere(const Ray*             const ray,
-                const Sphere*          const sphere,
-                _mut_ RayIntersection* const intersection)
+IntersectSphere(const Ray*             restrict const ray,
+                const Sphere*          restrict const sphere,
+                _mut_ RayIntersection* restrict const intersection)
 {
-    Assert(ray && sphere && intersection);
-    Assert(v3IsNorm(&ray->direction));
+    __RT_ASSERT__(ray && sphere && intersection);
+    __RT_ASSERT__(v3IsNorm(&ray->direction));
 
     // Quadratic
     r32 sphere_radius_sq = sphere->radius * sphere->radius;
@@ -1217,7 +1242,7 @@ IntersectSphere(const Ray*             const ray,
     r32 a = ray_dir_mag * ray_dir_mag;
     r32 b = 2.0f * (v3Dot(&ray->direction, &ray_to_sphere));
     r32 c = v3Dot(&ray_to_sphere, &ray_to_sphere) - sphere_radius_sq;
-    /* Assert(c > 0); */
+    /* __RT_ASSERT__(c > 0); */
 
     r32 discriminant = (b * b) - (4.0f * a * c);
     if (discriminant >= 0.0f)
@@ -1238,7 +1263,7 @@ IntersectSphere(const Ray*             const ray,
             / (2.0f * a);
 
         // [ cfarvin::NOTE ] Bounces may be in any direction
-        //Assert(magnitude >= 0);
+        //__RT_ASSERT__(magnitude >= 0);
 
         intersection->magnitude = magnitude;
 
@@ -1270,17 +1295,121 @@ IntersectSphere(const Ray*             const ray,
 
 
 __RT_internal__ __RT_inline__ void
-TraceSphere(const Ray*             const ray,
-            _mut_ RayIntersection* const intersection,
-            _mut_ r32*             const global_magnitude_threshold,
-            _mut_ Color32_RGB*     const return_color,
-            const Sphere*          const sphere)
+ReflectRays(/* const Ray*             restrict const ray, */
+    _mut_ RayIntersection* restrict const incident_intersection,
+    /* _mut_ r32*             restrict const global_magnitude_threshold, */
+    _mut_ Color32_RGB*     restrict const return_color,
+    const Sphere*          restrict const sphere_arr,
+    const size_t                          num_spheres,
+    const size_t                          intersected_sphere_index)
 {
-    Assert(ray);
-    Assert(intersection);
-    Assert(return_color);
-    Assert(sphere);
-    Assert(global_magnitude_threshold);
+    /* __RT_ASSERT__(ray); */
+    __RT_ASSERT__(incident_intersection);
+    __RT_ASSERT__(return_color);
+    __RT_ASSERT__(sphere_arr);
+    __RT_ASSERT__(num_spheres >= 1);
+    __RT_ASSERT__(intersected_sphere_index <= num_spheres);
+    /* __RT_ASSERT__(global_magnitude_threshold); */
+    __RT_ASSERT__(num_spheres >= 1); // See: TraceSphere( ... );
+
+    if (!incident_intersection->does_intersect)
+    {
+        return;
+    }
+
+    u16             bounces             = 0;
+    r64             photon_energy       = 0;
+    RayIntersection bounce_intersection = { 0 };
+    Ray             bounce_ray          = { 0 };
+    Color32_RGB     bounce_color        = { 0 };
+
+    GetEnergyByColorRGB_eV(return_color, &photon_energy);
+    photon_energy /=
+        incident_intersection->intersection_material.absorbtion_coefficient;
+
+    while (photon_energy > 0)
+    {
+        if (bounces >
+            incident_intersection->intersection_material.max_generated_rays)
+        {
+            break;
+        }
+
+        v3Set(&bounce_ray.origin,
+              incident_intersection->normal_vector.x,
+              incident_intersection->normal_vector.y,
+              incident_intersection->normal_vector.z);
+
+        r32 xrand = (r32)XorShift32() + TOLERANCE;
+        r32 yrand = (r32)XorShift32() + TOLERANCE;
+        r32 zrand = (r32)XorShift32() + TOLERANCE;
+        v3SetAndNorm(&bounce_ray.direction,
+                     bounce_ray.origin.x +
+                     NormalizeToRange((r32)TOLERANCE,
+                                      (r32)(~(u32)0),
+                                      (r32)TOLERANCE,
+                                      (r32)__RT_AA__reflection_noise,
+                                      xrand),
+                     bounce_ray.origin.y +
+                     NormalizeToRange((r32)TOLERANCE,
+                                      (r32)(~(u32)0),
+                                      (r32)TOLERANCE,
+                                      (r32)__RT_AA__reflection_noise,
+                                      yrand),
+                     bounce_ray.origin.z +
+                     NormalizeToRange((r32)TOLERANCE,
+                                      (r32)(~(u32)0),
+                                      (r32)TOLERANCE,
+                                      (r32)__RT_AA__reflection_noise,
+                                      zrand));
+
+// Ensure that the reflected ray does not intersect
+// the originating sphere at a point other than its
+// origin.
+#if __RT_DEBUG__
+        RayIntersection test_intersection = { 0 };
+        IntersectSphere(&bounce_ray,
+                        &sphere_arr[intersected_sphere_index],
+                        &test_intersection);
+        if (test_intersection.does_intersect)
+        {
+            __RT_ASSERT__(v3IsEqual(&test_intersection.normal_vector,
+                                    &bounce_ray.origin));
+        }
+#endif // __RT_DEBUG__
+
+        TraceSphereArray(&bounce_ray,
+                         &bounce_intersection,
+                         &incident_intersection->magnitude,
+                         &bounce_color,
+                         sphere_arr,
+                         num_spheres);
+
+        if (bounce_intersection.does_intersect &&
+            bounce_intersection.normal_vector.z >
+            incident_intersection->normal_vector.z)
+        {
+            return_color->channel.R = bounce_color.channel.R;
+            return_color->channel.G = bounce_color.channel.G;
+            return_color->channel.B = bounce_color.channel.B;
+        }
+
+        bounces++;
+    }
+}
+
+__RT_internal__ __RT_inline__ void
+TraceSphere(const Ray*             restrict const ray,
+            _mut_ RayIntersection* restrict const intersection,
+            _mut_ r32*             restrict const global_magnitude_threshold,
+            _mut_ Color32_RGB*     restrict const return_color,
+            const Sphere*          restrict const sphere)
+{
+    __RT_ASSERT__(ray);
+    __RT_ASSERT__(intersection);
+    __RT_ASSERT__(return_color);
+    __RT_ASSERT__(sphere);
+    __RT_ASSERT__(global_magnitude_threshold);
 
     IntersectSphere(ray, sphere, intersection);
     if (intersection->does_intersect &&
@@ -1293,23 +1422,29 @@ TraceSphere(const Ray*             const ray,
 
 
 __RT_internal__ __RT_inline__ void
-TraceSphereArray(const Ray*             const ray,
-                 _mut_ RayIntersection* const intersection,
-                 _mut_ r32*             const global_magnitude_threshold,
-                 _mut_ Color32_RGB*     const return_color,
-                 const Sphere*          const sphere_arr,
-                 const size_t                 num_spheres)
+TraceSphereArray(const Ray*             restrict const ray,
+                 _mut_ RayIntersection* restrict const intersection,
+                 _mut_ r32*             restrict const global_magnitude_threshold,
+                 _mut_ Color32_RGB*     restrict const return_color,
+                 const Sphere*          restrict const sphere_arr,
+                 const size_t                          num_spheres)
 {
-    Assert(ray);
-    Assert(intersection);
-    Assert(return_color);
-    Assert(sphere_arr);
-    Assert(global_magnitude_threshold);
-    Assert(num_spheres >= 1); // See: TraceSphere( ... );
+    __RT_ASSERT__(ray);
+    __RT_ASSERT__(intersection);
+    __RT_ASSERT__(return_color);
+    __RT_ASSERT__(sphere_arr);
+    __RT_ASSERT__(global_magnitude_threshold);
+    __RT_ASSERT__(num_spheres >= 2); // See: TraceSphere( ... );
 
     RayIntersection closestIntersection = { 0 };
     closestIntersection.magnitude = MAX_RAY_MAG;
-
+//
+#if __RT_AA__reflections
+//
+    size_t intersected_sphere_index = 0;
+//
+#endif // __RT_AA__reflections
+//
     for (size_t sphere_index = 0;
          sphere_index < num_spheres;
          sphere_index++)
@@ -1327,6 +1462,13 @@ TraceSphereArray(const Ray*             const ray,
 
             return_color->value =
                 (sphere_arr[sphere_index]).material.color.value;
+//
+#if __RT_AA__reflections
+//
+            intersected_sphere_index = sphere_index;
+//
+#endif // __RT_AA__reflections
+//
         }
     }
 
@@ -1336,81 +1478,17 @@ TraceSphereArray(const Ray*             const ray,
         intersection->does_intersect = true;
     }
 
-    //
-#ifdef __RT_AA__reflections
 //
-    if (intersection->does_intersect)
-    {
-        u16              bounces             = 0;
-        r64             photon_energy       = 0;
-        RayIntersection bounce_intersection = { 0 };
-        Ray             bounce_ray          = { 0 };
-
-        Color32_RGB bounce_color = { 0 };
-        GetEnergyByColorRGB_eV(return_color, &photon_energy);
-        photon_energy /=
-            intersection->intersection_material.absorbtion_coefficient;
-
-        while (photon_energy > 0)
-        {
-            if (bounces >
-                intersection->intersection_material.max_generated_rays)
-            {
-                break;
-            }
-
-            v3Set(&bounce_ray.origin,
-                  intersection->normal_vector.x,
-                  intersection->normal_vector.y,
-                  intersection->normal_vector.z);
-
-            r32 xrand = (r32)XorShift32() + TOLERANCE;
-            r32 yrand = (r32)XorShift32() + TOLERANCE;
-            r32 zrand = (r32)XorShift32() + TOLERANCE;
-            v3SetAndNorm(&bounce_ray.direction,
-                         ray->direction.x +
-                         NormalizeToRange((r32)TOLERANCE,
-                                          (r32)(~(u32)0),
-                                          (r32)TOLERANCE,
-                                          (r32)__RT_AA__reflection_noise,
-                                          xrand),
-                         ray->direction.y +
-                         NormalizeToRange((r32)TOLERANCE,
-                                          (r32)(~(u32)0),
-                                          (r32)TOLERANCE,
-                                          (r32)__RT_AA__reflection_noise,
-                                          yrand),
-                         ray->direction.z +
-                         NormalizeToRange((r32)TOLERANCE,
-                                          (r32)(~(u32)0),
-                                          (r32)TOLERANCE,
-                                          (r32)__RT_AA__reflection_noise,
-                                          zrand));
-
-            TraceSphereArray(&bounce_ray,
-                             &bounce_intersection,
-                             &intersection->magnitude,
-                             &bounce_color,
-                             sphere_arr,
-                             num_spheres);
-
-            if (bounce_intersection.does_intersect &&
-                bounce_intersection.normal_vector.z >
-                intersection->normal_vector.z)
-            {
-                return_color->channel.R = bounce_color.channel.R;
-                return_color->channel.G = bounce_color.channel.G;
-                return_color->channel.B = bounce_color.channel.B;
-            }
-
-            bounces++;
-        }
-    }
-
+#if __RT_AA__reflections
+//
+    ReflectRays(intersection,
+                return_color,
+                sphere_arr,
+                num_spheres,
+                intersected_sphere_index);
 //
 #endif // __RT_AA__reflections
 //
-
 }
 
 
@@ -1423,10 +1501,10 @@ WritePPM32(Color32_RGB* const pixel_array,
            u32          image_height,
            const char*  image_name)
 {
-    Assert(pixel_array && image_width && image_height);
+    __RT_ASSERT__(pixel_array && image_width && image_height);
 
     FILE* ppm_file = fopen(image_name, "w");
-    Assert(ppm_file);
+    __RT_ASSERT__(ppm_file);
 
     char ppm_header[MAX_PPM_HEADER_SIZE];
     u32 success = snprintf(ppm_header,
@@ -1434,8 +1512,8 @@ WritePPM32(Color32_RGB* const pixel_array,
                            "P3\n%d %d\n255\n",
                            image_width,
                            image_height);
-    Assert((success > 0) &&
-           (success < MAX_PPM_HEADER_SIZE));
+    __RT_ASSERT__((success > 0) &&
+                  (success < MAX_PPM_HEADER_SIZE));
     fwrite(ppm_header, success, 1, ppm_file);
 
     // [ cfarvin::TODO ] [ cfarvin::DEBUG ]
@@ -1458,15 +1536,15 @@ WritePPM32(Color32_RGB* const pixel_array,
                                pixel_array[pix_idx].channel.G,
                                pixel_array[pix_idx].channel.B);
 
-            Assert(success > 0);
-            Assert(success < MAX_PPM_TRIPPLET_SIZE);
+            __RT_ASSERT__(success > 0);
+            __RT_ASSERT__(success < MAX_PPM_TRIPPLET_SIZE);
 
             fwrite(rgb_tripplet, success, 1, ppm_file);
             pix_idx++;
         }
     }
 
-    Assert(pix_idx == (image_height * image_width));
+    __RT_ASSERT__(pix_idx == (image_height * image_width));
     fclose(ppm_file);
 }
 
@@ -1478,7 +1556,7 @@ WriteBitmap32(Color32_RGB* const pixel_array,
               const char*    image_name)
 
 {
-    Assert(pixel_array && image_width && image_height);
+    __RT_ASSERT__(pixel_array && image_width && image_height);
     u32 pixel_array_size = sizeof(u32) * image_width * image_height;
 
     BitmapHeader bitmap_header = { 0 };
@@ -1493,7 +1571,7 @@ WriteBitmap32(Color32_RGB* const pixel_array,
     bitmap_header.pix_arr_size = pixel_array_size;
 
     FILE* bitmap_file = fopen(image_name, "wb");
-    Assert(bitmap_file);
+    __RT_ASSERT__(bitmap_file);
 
     fwrite(&bitmap_header, sizeof(BitmapHeader), 1, bitmap_file);
     fwrite(pixel_array,  pixel_array_size, 1, bitmap_file);
@@ -1509,45 +1587,45 @@ __RT_internal__ __RT_call__  void
 GetDefaultMaterialByClass(_mut_ Material*     const material,
                           const MaterialClass       material_class)
 {
-    Assert(material);
+    __RT_ASSERT__(material);
 
     switch(material_class)
     {
-    case MATERIAL_CLASS_DIFFUSE:
-    {
-        material->max_generated_rays = 1;
-        material->absorbtion_coefficient = (r32)0.85;
-        break;
-    }
-    case MATERIAL_CLASS_METAL:
-    {
-        material->max_generated_rays = 1;
-        material->absorbtion_coefficient = (r32)0.05;
-        break;
-    }
+        case MATERIAL_CLASS_DIFFUSE:
+        {
+            material->max_generated_rays = 3;
+            material->absorbtion_coefficient = (r32)0.85;
+            break;
+        }
+        case MATERIAL_CLASS_METAL:
+        {
+            material->max_generated_rays = 3;
+            material->absorbtion_coefficient = (r32)0.05;
+            break;
+        }
 
-    case MATERIAL_CLASS_NONE:
-    {
-        material->max_generated_rays = 0;
-        material->absorbtion_coefficient = (r32)0.0f;
-        break;
-    }
+        case MATERIAL_CLASS_N__RT_ON__E:
+        {
+            material->max_generated_rays = 0;
+            material->absorbtion_coefficient = (r32)0.0f;
+            break;
+        }
     }
 }
 
 
 __RT_internal__ __RT_inline__ void
-BlendColorByMaterial(const Material*    const material,
-                     const Color32_RGB* const input_color,
-                     _mut_ Color32_RGB* const return_color)
+BlendColorByMaterial(const Material*    restrict const material,
+                     const Color32_RGB* restrict const input_color,
+                     _mut_ Color32_RGB* restrict const return_color)
 {
-    Assert(material);
-    Assert(material->max_generated_rays > 0);
-    Assert(material->material_class != MATERIAL_CLASS_NONE);
-    Assert(material->absorbtion_coefficient >= 0
-           && material->absorbtion_coefficient <= 1);
-    Assert(input_color);
-    Assert(return_color);
+    __RT_ASSERT__(material);
+    __RT_ASSERT__(material->max_generated_rays > 0);
+    __RT_ASSERT__(material->material_class != MATERIAL_CLASS_N__RT_ON__E);
+    __RT_ASSERT__(material->absorbtion_coefficient >= 0
+                  && material->absorbtion_coefficient <= 1);
+    __RT_ASSERT__(input_color);
+    __RT_ASSERT__(return_color);
 
     // [ cfarvin::TODO ] [ cfarvin::FINDME ]
     /* *(return_color->channel.R) = */
@@ -1559,11 +1637,11 @@ BlendColorByMaterial(const Material*    const material,
 __RT_internal__ __RT_inline__ void
 DetermineBackgroundColor(const size_t pix_x,
                          const size_t pix_y,
-                         _mut_ Color32_RGB* const return_color)
+                         _mut_ Color32_RGB* restrict const return_color)
 {
     if (pix_x) {} // [ cfarvin::TEMP ] Silence unused variable warning
     if (pix_y) {} // [ cfarvin::TEMP ] Silence unused variable warning
-    Assert(return_color);
+    __RT_ASSERT__(return_color);
 
     // Gradient
     return_color->value = 0;
@@ -1589,7 +1667,7 @@ DetermineBackgroundColor(const size_t pix_x,
 
 
 __RT_internal__ __RT_inline__ void
-SetRayDirectionByPixelCoordAA(_mut_ Ray*   const ray,
+SetRayDirectionByPixelCoordAA(_mut_ Ray* restrict const ray,
                               const size_t       pix_x,
                               const size_t       pix_y)
 {
@@ -1618,7 +1696,7 @@ SetRayDirectionByPixelCoordAA(_mut_ Ray*   const ray,
 
 
 __RT_internal__ __RT_inline__ void
-SetRayDirectionByPixelCoord(_mut_ Ray*   const ray,
+SetRayDirectionByPixelCoord(_mut_ Ray* restrict const ray,
                             const size_t       pix_x,
                             const size_t       pix_y)
 {
@@ -1724,41 +1802,41 @@ TestMaths()
     v3Set(&v3A, 1.0f, 1.0f, 1.0f);
     v3Set(&v3B, 1.0f, 1.0f, 1.0f);
     v3Add(&v3A, &v3B, &v3Result);
-    Assert(v3Result.x == 2 && v3Result.y == 2 && v3Result.z == 2);
+    __RT_ASSERT__(v3Result.x == 2 && v3Result.y == 2 && v3Result.z == 2);
 
     // v3Sub()
     v3Set(&v3A, 1.0f, 1.0f, 1.0f);
     v3Set(&v3B, 1.0f, 1.0f, 1.0f);
     v3Sub(&v3A, &v3B, &v3Result);
-    Assert(v3Result.x == 0 && v3Result.y == 0 && v3Result.z == 0);
+    __RT_ASSERT__(v3Result.x == 0 && v3Result.y == 0 && v3Result.z == 0);
 
     // v3ScalarMul()
     v3Set(&v3A, 1.0f, 1.0f, 1.0f);
     v3ScalarMul(&v3A, 5.0f, &v3Result);
-    Assert(v3Result.x == 5 && v3Result.y == 5 && v3Result.z == 5);
+    __RT_ASSERT__(v3Result.x == 5 && v3Result.y == 5 && v3Result.z == 5);
 
     // v3Mag()
     v3Set(&v3A, 1.0f, 1.0f, 1.0f);
-    Assert(v3Mag(&v3A) == (r32)sqrt(3));
+    __RT_ASSERT__(v3Mag(&v3A) == (r32)sqrt(3));
     v3Set(&v3A, 0.0f, 0.0f, 0.0f);
-    Assert(v3Mag(&v3A) == 0);
+    __RT_ASSERT__(v3Mag(&v3A) == 0);
 
     // v3Norm()
     v3Set(&v3A, 1.0f, 2.0f, 3.0f);
     r32 NormMagv3Result = v3Mag(&v3A);
-    Assert(NormMagv3Result = (r32)sqrt(14));
+    __RT_ASSERT__(NormMagv3Result = (r32)sqrt(14));
     v3Set(&v3Result,
           (v3A.x / NormMagv3Result),
           (v3A.y / NormMagv3Result),
           (v3A.z / NormMagv3Result));
     v3Norm(&v3A);
-    Assert(v3A.x == v3Result.x);
-    Assert(v3A.y == v3Result.y);
-    Assert(v3A.z == v3Result.z);
+    __RT_ASSERT__(v3A.x == v3Result.x);
+    __RT_ASSERT__(v3A.y == v3Result.y);
+    __RT_ASSERT__(v3A.z == v3Result.z);
 
     // v3IsNorm(), v3SetAndNorm()
     v3SetAndNorm(&v3A, 1.0f, 2.0f, 3.0f);
-    Assert(v3IsNorm(&v3A));
+    __RT_ASSERT__(v3IsNorm(&v3A));
 
     // v3Dot()
     v3SetAndNorm(&v3A, 1.0f, 2.0f, 3.0f);
@@ -1767,15 +1845,15 @@ TestMaths()
     r32 v3ScalarB = (v3A.x * v3B.x) +
         (v3A.y * v3B.y) +
         (v3A.z * v3B.z);
-    Assert(v3ScalarA == v3ScalarB);
+    __RT_ASSERT__(v3ScalarA == v3ScalarB);
 
     // v3Cross()
     v3Set(&v3A, 1.0f, 2.0f, 3.0f);
     v3Set(&v3B, 1.0f, 5.0f, 7.0f);
     v3Cross(&v3A, &v3B, &v3Result);
-    Assert(IsWithinTolerance(v3Result.x, -1));
-    Assert(IsWithinTolerance(v3Result.y, -4));
-    Assert(IsWithinTolerance(v3Result.z,  3));
+    __RT_ASSERT__(IsWithinTolerance(v3Result.x, -1));
+    __RT_ASSERT__(IsWithinTolerance(v3Result.y, -4));
+    __RT_ASSERT__(IsWithinTolerance(v3Result.z,  3));
 
     //
     // v4 Tests
@@ -1788,51 +1866,51 @@ TestMaths()
     v4Set(&v4A, 1.0f, 1.0f, 1.0f, 1.0f);
     v4Set(&v4B, 1.0f, 1.0f, 1.0f, 1.0f);
     v4Add(&v4A, &v4B, &v4Result);
-    Assert(v4Result.x == 2 &&
-           v4Result.y == 2 &&
-           v4Result.z == 2 &&
-           v4Result.w == 2);
+    __RT_ASSERT__(v4Result.x == 2 &&
+                  v4Result.y == 2 &&
+                  v4Result.z == 2 &&
+                  v4Result.w == 2);
 
     // v4Sub()
     v4Set(&v4A, 1.0f, 1.0f, 1.0f, 1.0f);
     v4Set(&v4B, 1.0f, 1.0f, 1.0f, 1.0f);
     v4Sub(&v4A, &v4B, &v4Result);
-    Assert(v4Result.x == 0 &&
-           v4Result.y == 0 &&
-           v4Result.z == 0 &&
-           v4Result.w == 0);
+    __RT_ASSERT__(v4Result.x == 0 &&
+                  v4Result.y == 0 &&
+                  v4Result.z == 0 &&
+                  v4Result.w == 0);
 
     // v4ScalarMul()
     v4Set(&v4A, 1.0f, 1.0f, 1.0f, 1.0f);
     v4ScalarMul(&v4A, 5.0f, &v4Result);
-    Assert(v4Result.x == 5 &&
-           v4Result.y == 5 &&
-           v4Result.z == 5 &&
-           v4Result.w == 5);
+    __RT_ASSERT__(v4Result.x == 5 &&
+                  v4Result.y == 5 &&
+                  v4Result.z == 5 &&
+                  v4Result.w == 5);
 
     // v4Mag()
     v4Set(&v4A, 1.0f, 1.0f, 1.0f, 1.0f);
-    Assert(v4Mag(&v4A) == (r32)sqrt(4));
+    __RT_ASSERT__(v4Mag(&v4A) == (r32)sqrt(4));
     v4Set(&v4A, 0.0f, 0.0f, 0.0f, 0.0f);
-    Assert(v4Mag(&v4A) == 0);
+    __RT_ASSERT__(v4Mag(&v4A) == 0);
 
     // v4Norm()
     v4Set(&v4A, 1.0f, 2.0f, 3.0f, 4.0f);
     r32 NormMagv4Result = v4Mag(&v4A);
-    Assert(IsWithinTolerance(NormMagv4Result, (r32)sqrt(30)));
+    __RT_ASSERT__(IsWithinTolerance(NormMagv4Result, (r32)sqrt(30)));
     v4Set(&v4Result,
           (v4A.x / NormMagv4Result),
           (v4A.y / NormMagv4Result),
           (v4A.z / NormMagv4Result),
           (v4A.w / NormMagv4Result));
     v4Norm(&v4A);
-    Assert(v4A.x == v4Result.x);
-    Assert(v4A.y == v4Result.y);
-    Assert(v4A.z == v4Result.z);
+    __RT_ASSERT__(v4A.x == v4Result.x);
+    __RT_ASSERT__(v4A.y == v4Result.y);
+    __RT_ASSERT__(v4A.z == v4Result.z);
 
     // v4IsNorm(), v4SetAndNorm()
     v4SetAndNorm(&v4A, 1.0f, 2.0f, 3.0f, 4.0);
-    Assert(v4IsNorm(&v4A));
+    __RT_ASSERT__(v4IsNorm(&v4A));
 
     // v4Dot()
     v4SetAndNorm(&v4A, 1.0f, 2.0f, 3.0f, 4.0);
@@ -1842,7 +1920,7 @@ TestMaths()
         (v4A.y * v4B.y) +
         (v4A.z * v4B.z) +
         (v4A.w * v4B.w);
-    Assert(v4ScalarA == v4ScalarB);
+    __RT_ASSERT__(v4ScalarA == v4ScalarB);
 
 
     //
@@ -1858,10 +1936,10 @@ TestMaths()
     {
         sum += m3A.arr[idx];
     }
-    Assert(sum == 3);
-    Assert(m3A.arr2d[0][0] == 1);
-    Assert(m3A.arr2d[1][1] == 1);
-    Assert(m3A.arr2d[2][2] == 1);
+    __RT_ASSERT__(sum == 3);
+    __RT_ASSERT__(m3A.arr2d[0][0] == 1);
+    __RT_ASSERT__(m3A.arr2d[1][1] == 1);
+    __RT_ASSERT__(m3A.arr2d[2][2] == 1);
 
     // m3Set(),
     m3Set(&m3A, 0);
@@ -1870,7 +1948,7 @@ TestMaths()
     {
         sum += m3A.arr[idx];
     }
-    Assert(sum == 0);
+    __RT_ASSERT__(sum == 0);
 
     m3Set(&m3A, 1);
     sum = 0;
@@ -1878,22 +1956,22 @@ TestMaths()
     {
         sum += m3A.arr[idx];
     }
-    Assert(sum == 9);
+    __RT_ASSERT__(sum == 9);
 
     // union m3
     m3A.i = (v3){{1.5, 2.5, 3.5}};
     m3A.j = (v3){{4.5, 5.5, 6.5}};
     m3A.k = (v3){{7.5, 8.5, 9.5}};
     v3Add(&m3A.i, &m3A.j, &v3Result);
-    Assert(v3Result.x == 6);
-    Assert(v3Result.y == 8);
-    Assert(v3Result.z == 10);
-    Assert(m3A.arr2d[2][0] == 7.5);
-    Assert(m3A.arr2d[2][1] == 8.5);
-    Assert(m3A.arr2d[2][2] == 9.5);
-    Assert(m3A.arr[0] == 1.5);
-    Assert(m3A.arr[1] == 2.5);
-    Assert(m3A.arr[2] == 3.5);
+    __RT_ASSERT__(v3Result.x == 6);
+    __RT_ASSERT__(v3Result.y == 8);
+    __RT_ASSERT__(v3Result.z == 10);
+    __RT_ASSERT__(m3A.arr2d[2][0] == 7.5);
+    __RT_ASSERT__(m3A.arr2d[2][1] == 8.5);
+    __RT_ASSERT__(m3A.arr2d[2][2] == 9.5);
+    __RT_ASSERT__(m3A.arr[0] == 1.5);
+    __RT_ASSERT__(m3A.arr[1] == 2.5);
+    __RT_ASSERT__(m3A.arr[2] == 3.5);
 
     // m3Mult()
     m3Ident(&m3A);
@@ -1904,7 +1982,7 @@ TestMaths()
     {
         sum += 0;
     }
-    Assert(sum == 0);
+    __RT_ASSERT__(sum == 0);
 
     m3A.i = (v3){{1, 2, 3}};
     m3A.j = (v3){{4, 5, 6}};
@@ -1914,11 +1992,11 @@ TestMaths()
     m3B.k = (v3){{70, 80, 90}};
     m3Mult(&m3A, &m3B, &m3Result);
     v3Set(&v3Result, 300, 360, 420);
-    Assert(v3IsEqual(&m3Result.i, &v3Result));
+    __RT_ASSERT__(v3IsEqual(&m3Result.i, &v3Result));
     v3Set(&v3Result, 660, 810, 960);
-    Assert(v3IsEqual(&m3Result.j, &v3Result));
+    __RT_ASSERT__(v3IsEqual(&m3Result.j, &v3Result));
     v3Set(&v3Result, 1020, 1260, 1500);
-    Assert(v3IsEqual(&m3Result.k, &v3Result));
+    __RT_ASSERT__(v3IsEqual(&m3Result.k, &v3Result));
 
 
     //
@@ -1934,10 +2012,10 @@ TestMaths()
     {
         sum += m4A.arr[idx];
     }
-    Assert(sum == 4);
-    Assert(m4A.arr2d[0][0] == 1);
-    Assert(m4A.arr2d[1][1] == 1);
-    Assert(m4A.arr2d[2][2] == 1);
+    __RT_ASSERT__(sum == 4);
+    __RT_ASSERT__(m4A.arr2d[0][0] == 1);
+    __RT_ASSERT__(m4A.arr2d[1][1] == 1);
+    __RT_ASSERT__(m4A.arr2d[2][2] == 1);
 
     // m4Set(),
     m4Set(&m4A, 0);
@@ -1946,7 +2024,7 @@ TestMaths()
     {
         sum += m4A.arr[idx];
     }
-    Assert(sum == 0);
+    __RT_ASSERT__(sum == 0);
 
     m4Set(&m4A, 1);
     sum = 0;
@@ -1954,25 +2032,25 @@ TestMaths()
     {
         sum += m4A.arr[idx];
     }
-    Assert(sum == 16);
+    __RT_ASSERT__(sum == 16);
 
     // union m4
     m4A.i = (v4){{1.5, 2.5, 3.5, 4.5}};
     m4A.j = (v4){{4.5, 5.5, 6.5, 7.5}};
     m4A.k = (v4){{7.5, 8.5, 9.5, 1.0}};
     v4Add(&m4A.i, &m4A.j, &v4Result);
-    Assert(v4Result.x == 6);
-    Assert(v4Result.y == 8);
-    Assert(v4Result.z == 10);
-    Assert(v4Result.w == 12);
-    Assert(m4A.arr2d[2][0] == 7.5);
-    Assert(m4A.arr2d[2][1] == 8.5);
-    Assert(m4A.arr2d[2][2] == 9.5);
-    Assert(m4A.arr2d[2][3] == 1.0);
-    Assert(m4A.arr[0] == 1.5);
-    Assert(m4A.arr[1] == 2.5);
-    Assert(m4A.arr[2] == 3.5);
-    Assert(m4A.arr[3] == 4.5);
+    __RT_ASSERT__(v4Result.x == 6);
+    __RT_ASSERT__(v4Result.y == 8);
+    __RT_ASSERT__(v4Result.z == 10);
+    __RT_ASSERT__(v4Result.w == 12);
+    __RT_ASSERT__(m4A.arr2d[2][0] == 7.5);
+    __RT_ASSERT__(m4A.arr2d[2][1] == 8.5);
+    __RT_ASSERT__(m4A.arr2d[2][2] == 9.5);
+    __RT_ASSERT__(m4A.arr2d[2][3] == 1.0);
+    __RT_ASSERT__(m4A.arr[0] == 1.5);
+    __RT_ASSERT__(m4A.arr[1] == 2.5);
+    __RT_ASSERT__(m4A.arr[2] == 3.5);
+    __RT_ASSERT__(m4A.arr[3] == 4.5);
 
     // m4Mult()
     m4Ident(&m4A);
@@ -1983,7 +2061,7 @@ TestMaths()
     {
         sum += 0;
     }
-    Assert(sum == 0);
+    __RT_ASSERT__(sum == 0);
 
     m4A.i = (v4){{1,  2,  3,    9}};
     m4A.j = (v4){{4,  5,  6,    8}};
@@ -1995,13 +2073,13 @@ TestMaths()
     m4B.n = (v4){{80, 90, 100, 60}};
     m4Mult(&m4A, &m4B, &m4Result);
     v4Set(&v4Result, 1020, 1170, 1320, 1000);
-    Assert(v4IsEqual(&m4Result.i, &v4Result));
+    __RT_ASSERT__(v4IsEqual(&m4Result.i, &v4Result));
     v4Set(&v4Result, 1300, 1530, 1760, 1660);
-    Assert(v4IsEqual(&m4Result.j, &v4Result));
+    __RT_ASSERT__(v4IsEqual(&m4Result.j, &v4Result));
     v4Set(&v4Result, 1580, 1890, 2200, 2320);
-    Assert(v4IsEqual(&m4Result.k, &v4Result));
+    __RT_ASSERT__(v4IsEqual(&m4Result.k, &v4Result));
     v4Set(&v4Result, 1860, 2250, 2640, 2980);
-    Assert(v4IsEqual(&m4Result.n, &v4Result));
+    __RT_ASSERT__(v4IsEqual(&m4Result.n, &v4Result));
 
 
     //
@@ -2013,8 +2091,8 @@ TestMaths()
     for (size_t iter = 0; iter < 10000; iter++)
     {
         rand = NormalBoundedXorShift32();
-        Assert(rand >= 0);
-        Assert(rand <= 1);
+        __RT_ASSERT__(rand >= 0);
+        __RT_ASSERT__(rand <= 1);
     }
 
     // Reset XorShift32State
@@ -2041,10 +2119,28 @@ Log()
     if (__RT_AA__)
     {
         printf("Antialiasing:         ON\n");
+        printf("---RPP:               %d\n",
+               __RT_AA__RPP);
+        printf("---noise:             %2.3f\n",
+               __RT_AA__noise);
+
     }
     else
     {
         printf("Antialiasing:         OFF\n");
+    }
+
+    if (__RT_AA__reflections)
+    {
+        printf("Reflections:          ON\n");
+#if __RT_AA__reflections
+        printf("---noise:             %2.3f\n",
+               __RT_AA__reflection_noise);
+#endif // __RT_AA__reflections
+    }
+    else
+    {
+        printf("Reflections:          OFF\n");
     }
 
     if (__LSB__)

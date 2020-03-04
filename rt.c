@@ -78,9 +78,9 @@ main(int argc, char** argv)
                 }
 
                 // Remote possibility that a channel value may overflow.
-                Assert( (FLT_MAX - aa_pixel_color_accumulator.x) > 255 );
-                Assert( (FLT_MAX - aa_pixel_color_accumulator.y) > 255 );
-                Assert( (FLT_MAX - aa_pixel_color_accumulator.z) > 255 );
+                __RT_ASSERT__( (FLT_MAX - aa_pixel_color_accumulator.x) > 255 );
+                __RT_ASSERT__( (FLT_MAX - aa_pixel_color_accumulator.y) > 255 );
+                __RT_ASSERT__( (FLT_MAX - aa_pixel_color_accumulator.z) > 255 );
 
             } // end: for (size_t aa_ray = 0; aa_ray < aa_rays_per_pixel; aa_ray++)
 
