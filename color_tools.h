@@ -39,6 +39,7 @@ typedef struct
     r32 V; // [ 0, 001 ]
 } Color32_HSV;
 
+
 __RT_internal__ __RT_inline__ u8
 BindValueTo8BitColorChannel(const r32 value_min,
                             const r32 value_max,

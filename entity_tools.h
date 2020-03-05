@@ -9,12 +9,45 @@
 
 
 
+typedef enum
+{
+    ET_NONE,
+    ET_SPHERE
+} EntityType;
+
+
+typedef struct
+{
+    r32 radius;
+} Sphere;
+
+
+typedef struct
+{
+    r32 length;
+} Cube;
+
+
+#ifdef _WIN32
+#pragma warning( push )
+#pragma warning( disable : 4201 )
+#endif // WIN32
 typedef struct
 {
     v3       position;
-    r32      radius;
     Material material;
-} Sphere;
+
+    EntityType type;
+    typedef union
+    {
+        Sphere;
+        Cube;
+    };
+} Entity;
+#ifdef _WIN32
+#pragma warning( pop )
+#endif // WIN32
+
 
 
 typedef struct
@@ -48,17 +81,17 @@ typedef struct
 // PROTOTYPES (as needed)
 //
 __RT_internal__ __RT_inline__ void
-IntersectSphere(const Ray*             restrict const ray,
-                const Sphere*          restrict const sphere,
+IntersectEntity(const Ray*             restrict const ray,
+                const Entity*          restrict const entity,
                 _mut_ RayIntersection* restrict const intersection);
 
 __RT_internal__ __RT_inline__ void
-TraceSphereArray(const Ray*             restrict const ray,
+TraceEntityArray(const Ray*             restrict const ray,
                  _mut_ RayIntersection* restrict const intersection,
                  _mut_ r32*             restrict const global_magnitude_threshold,
                  _mut_ Color32_RGB*     restrict const return_color,
-                 const Sphere*          restrict const sphere_arr,
-                 const size_t                          num_spheres);
+                 const Entity*          restrict const entity_arr,
+                 const size_t                          num_entitys);
 
 //
 #if __RT_AA__reflections
@@ -68,18 +101,18 @@ ReflectRays(/* const Ray*             restrict const ray, */
     _mut_ RayIntersection* restrict const incident_intersection,
     /* _mut_ r32*             restrict const global_magnitude_threshold, */
     _mut_ Color32_RGB*     restrict const return_color,
-    const Sphere*          restrict const sphere_arr,
-    const size_t                          num_spheres,
-    const size_t                          intersected_sphere_index)
+    const Entity*          restrict const entity_arr,
+    const size_t                          num_entitys,
+    const size_t                          intersected_entity_index)
 {
     /* __RT_ASSERT__(ray); */
     __RT_ASSERT__(incident_intersection);
     __RT_ASSERT__(return_color);
-    __RT_ASSERT__(sphere_arr);
-    __RT_ASSERT__(num_spheres >= 1);
-    __RT_ASSERT__(intersected_sphere_index <= num_spheres);
+    __RT_ASSERT__(entity_arr);
+    __RT_ASSERT__(num_entitys >= 1);
+    __RT_ASSERT__(intersected_entity_index <= num_entitys);
     /* __RT_ASSERT__(global_magnitude_threshold); */
-    __RT_ASSERT__(num_spheres >= 1); // See: TraceSphere( ... );
+    __RT_ASSERT__(num_entitys >= 1); // See: TraceEntity( ... );
 
     if (!incident_intersection->does_intersect)
     {
@@ -133,12 +166,12 @@ ReflectRays(/* const Ray*             restrict const ray, */
                                       zrand));
 
 // Ensure that the reflected ray does not intersect
-// the originating sphere at a point other than its
+// the originating entity at a point other than its
 // origin.
 #if __RT_DEBUG__
         RayIntersection test_intersection = { 0 };
-        IntersectSphere(&bounce_ray,
-                        &sphere_arr[intersected_sphere_index],
+        IntersectEntity(&bounce_ray,
+                        &entity_arr[intersected_entity_index],
                         &test_intersection);
         if (test_intersection.does_intersect)
         {
@@ -147,12 +180,12 @@ ReflectRays(/* const Ray*             restrict const ray, */
         }
 #endif // __RT_DEBUG__
 
-        TraceSphereArray(&bounce_ray,
+        TraceEntityArray(&bounce_ray,
                          &bounce_intersection,
                          &incident_intersection->magnitude,
                          &bounce_color,
-                         sphere_arr,
-                         num_spheres);
+                         entity_arr,
+                         num_entitys);
 
         if (bounce_intersection.does_intersect &&
             bounce_intersection.normal_vector.z >
@@ -210,25 +243,29 @@ SetRayDirectionByPixelCoord(_mut_ Ray* restrict const ray,
 }
 
 
-__RT_internal__ Sphere*
-CreateSpheres(const size_t sphere_count)
+// [ cfarvin::TODO ] Will presently only work with spheres.
+//                   Future: C99+ _Generic for entity types.
+__RT_internal__ Entity*
+CreateEntities(const size_t entity_count)
 {
-    return (Sphere*)calloc(sphere_count, sizeof(Sphere));
+    return (Entity*)calloc(entity_count, sizeof(Entity));
 }
 
 
+// [ cfarvin::TODO ] Will presently only work with spheres.
+//                   Future: C99+ _Generic for entity types.
 __RT_internal__ __RT_inline__ void
-IntersectSphere(const Ray*             restrict const ray,
-                const Sphere*          restrict const sphere,
+IntersectEntity(const Ray*             restrict const ray,
+                const Entity*          restrict const entity,
                 _mut_ RayIntersection* restrict const intersection)
 {
-    __RT_ASSERT__(ray && sphere && intersection);
+    __RT_ASSERT__(ray && entity && intersection);
     __RT_ASSERT__(v3IsNorm(&ray->direction));
 
     // Quadratic
-    r32 sphere_radius_sq = sphere->radius * sphere->radius;
-    v3 ray_to_sphere = { 0 };
-    v3Sub(&ray->origin, &sphere->position, &ray_to_sphere);
+    r32 entity_radius_sq = entity->radius * entity->radius;
+    v3 ray_to_entity = { 0 };
+    v3Sub(&ray->origin, &entity->position, &ray_to_entity);
 
     // Ray magnitude must fall within boundaries
     r32 ray_dir_mag = v3Mag(&ray->direction);
@@ -240,8 +277,8 @@ IntersectSphere(const Ray*             restrict const ray,
     }
 
     r32 a = ray_dir_mag * ray_dir_mag;
-    r32 b = 2.0f * (v3Dot(&ray->direction, &ray_to_sphere));
-    r32 c = v3Dot(&ray_to_sphere, &ray_to_sphere) - sphere_radius_sq;
+    r32 b = 2.0f * (v3Dot(&ray->direction, &ray_to_entity));
+    r32 c = v3Dot(&ray_to_entity, &ray_to_entity) - entity_radius_sq;
     /* __RT_ASSERT__(c > 0); */
 
     r32 discriminant = (b * b) - (4.0f * a * c);
@@ -274,7 +311,7 @@ IntersectSphere(const Ray*             restrict const ray,
               ray->origin.z + (magnitude*ray->direction.z));
 
         // Set intersection normal vector
-        v3Sub(&sphere->position,
+        v3Sub(&entity->position,
               &intersection->position,
               &intersection->normal_vector);
 
@@ -283,69 +320,73 @@ IntersectSphere(const Ray*             restrict const ray,
         // [ cfarvin::REVSIT ]
         // Set intersection material
         intersection->intersection_material.max_generated_rays =
-            sphere->material.max_generated_rays;
+            entity->material.max_generated_rays;
         intersection->intersection_material.material_class =
-            sphere->material.material_class;
+            entity->material.material_class;
         intersection->intersection_material.absorbtion_coefficient =
-            sphere->material.absorbtion_coefficient;
+            entity->material.absorbtion_coefficient;
         intersection->intersection_material.color =
-            sphere->material.color;
+            entity->material.color;
     }
 }
 
 
+// [ cfarvin::TODO ] Will presently only work with spheres.
+//                   Future: C99+ _Generic for entity types.
 __RT_internal__ __RT_inline__ void
-TraceSphere(const Ray*             restrict const ray,
+TraceEntity(const Ray*             restrict const ray,
             _mut_ RayIntersection* restrict const intersection,
             _mut_ r32*             restrict const global_magnitude_threshold,
             _mut_ Color32_RGB*     restrict const return_color,
-            const Sphere*          restrict const sphere)
+            const Entity*          restrict const entity)
 {
     __RT_ASSERT__(ray);
     __RT_ASSERT__(intersection);
     __RT_ASSERT__(return_color);
-    __RT_ASSERT__(sphere);
+    __RT_ASSERT__(entity);
     __RT_ASSERT__(global_magnitude_threshold);
 
-    IntersectSphere(ray, sphere, intersection);
+    IntersectEntity(ray, entity, intersection);
     if (intersection->does_intersect &&
         (fabs(intersection->magnitude) < fabs(*global_magnitude_threshold)))
     {
         *global_magnitude_threshold = (r32)fabs(intersection->magnitude);
-        return_color->value = sphere->material.color.value;
+        return_color->value = entity->material.color.value;
     }
 }
 
 
+// [ cfarvin::TODO ] Will presently only work with spheres.
+//                   Future: C99+ _Generic for entity types.
 __RT_internal__ __RT_inline__ void
-TraceSphereArray(const Ray*             restrict const ray,
+TraceEntityArray(const Ray*             restrict const ray,
                  _mut_ RayIntersection* restrict const intersection,
                  _mut_ r32*             restrict const global_magnitude_threshold,
                  _mut_ Color32_RGB*     restrict const return_color,
-                 const Sphere*          restrict const sphere_arr,
-                 const size_t                          num_spheres)
+                 const Entity*          restrict const entity_arr,
+                 const size_t                          num_entitys)
 {
     __RT_ASSERT__(ray);
     __RT_ASSERT__(intersection);
     __RT_ASSERT__(return_color);
-    __RT_ASSERT__(sphere_arr);
+    __RT_ASSERT__(entity_arr);
     __RT_ASSERT__(global_magnitude_threshold);
-    __RT_ASSERT__(num_spheres >= 2); // See: TraceSphere( ... );
+    __RT_ASSERT__(num_entitys >= 2); // See: TraceEntity( ... );
 
     RayIntersection closestIntersection = { 0 };
     closestIntersection.magnitude = MAX_RAY_MAG;
 //
 #if __RT_AA__reflections
 //
-    size_t intersected_sphere_index = 0;
+    size_t intersected_entity_index = 0;
 //
 #endif // __RT_AA__reflections
 //
-    for (size_t sphere_index = 0;
-         sphere_index < num_spheres;
-         sphere_index++)
+    for (size_t entity_index = 0;
+         entity_index < num_entitys;
+         entity_index++)
     {
-        IntersectSphere(ray, &sphere_arr[sphere_index], intersection);
+        IntersectEntity(ray, &entity_arr[entity_index], intersection);
         if (intersection->does_intersect &&
             (intersection->magnitude < closestIntersection.magnitude))
         {
@@ -357,11 +398,11 @@ TraceSphereArray(const Ray*             restrict const ray,
                   intersection->normal_vector.z);
 
             return_color->value =
-                (sphere_arr[sphere_index]).material.color.value;
+                (entity_arr[entity_index]).material.color.value;
 //
 #if __RT_AA__reflections
 //
-            intersected_sphere_index = sphere_index;
+            intersected_entity_index = entity_index;
 //
 #endif // __RT_AA__reflections
 //
@@ -379,39 +420,41 @@ TraceSphereArray(const Ray*             restrict const ray,
 //
     ReflectRays(intersection,
                 return_color,
-                sphere_arr,
-                num_spheres,
-                intersected_sphere_index);
+                entity_arr,
+                num_entitys,
+                intersected_entity_index);
 //
 #endif // __RT_AA__reflections
 //
 }
 
 
-__RT_internal__ __RT_call__ Sphere*
-CreateRandomSpheres(size_t num_spheres)
+// [ cfarvin::TODO ] Will presently only work with spheres.
+//                   Future: C99+ _Generic for entity types.
+__RT_internal__ __RT_call__ Entity*
+CreateRandomEntities(size_t num_entitys)
 {
-    Sphere* sphere_arr = CreateSpheres(num_spheres);
-    for (size_t sphere_index = 0;
-         sphere_index < num_spheres;
-         sphere_index++)
+    Entity* entity_arr = CreateEntities(num_entitys);
+    for (size_t entity_index = 0;
+         entity_index < num_entitys;
+         entity_index++)
     {
         // Positions
-        sphere_arr[sphere_index].position.x =
+        entity_arr[entity_index].position.x =
             NormalizeToRange((r32)TOLERANCE,
                              (r32)(~(u32)0),
                              -1.0f,
                              +1.0f,
                              (r32)XorShift32());
 
-        sphere_arr[sphere_index].position.y =
+        entity_arr[entity_index].position.y =
             NormalizeToRange((r32)TOLERANCE,
                              (r32)(~(u32)0),
                              -1.0f,
                              +1.0f,
                              (r32)XorShift32());
 
-        sphere_arr[sphere_index].position.z =
+        entity_arr[entity_index].position.z =
             NormalizeToRange((r32)TOLERANCE,
                              (r32)(~(u32)0),
                              -2.0f,
@@ -419,7 +462,7 @@ CreateRandomSpheres(size_t num_spheres)
                              (r32)XorShift32());
 
         // Radius
-        sphere_arr[sphere_index].radius =
+        entity_arr[entity_index].radius =
             NormalizeToRange((r32)TOLERANCE,
                              (r32)(~(u32)0),
                              0.15f,
@@ -427,43 +470,39 @@ CreateRandomSpheres(size_t num_spheres)
                              (r32)XorShift32());
 
         // Materials
-        sphere_arr[sphere_index].material.color.channel.R =
+        entity_arr[entity_index].material.color.channel.R =
             BindValueTo8BitColorChannel((r32)TOLERANCE,
                                         (r32)(~(u32)0),
                                         (r32)XorShift32());
-        sphere_arr[sphere_index].material.color.channel.G =
+        entity_arr[entity_index].material.color.channel.G =
             BindValueTo8BitColorChannel((r32)TOLERANCE,
                                         (r32)(~(u32)0),
                                         (r32)XorShift32());
-        sphere_arr[sphere_index].material.color.channel.B =
+        entity_arr[entity_index].material.color.channel.B =
             BindValueTo8BitColorChannel((r32)TOLERANCE,
                                         (r32)(~(u32)0),
                                         (r32)XorShift32());
-
-#if 0
 //
 #if __RT_DEBUG__
 //
         // Log
-        printf("  Sphere [%zd]:\n", sphere_index);
+        printf("  Entity [%zd]:\n", entity_index);
         printf("    Position: (%2.2f, %2.2f, %2.2f)\n",
-               sphere_arr[sphere_index].position.x,
-               sphere_arr[sphere_index].position.y,
-               sphere_arr[sphere_index].position.z);
-        printf("    Radius: %2.2f\n", sphere_arr[sphere_index].radius);
+               entity_arr[entity_index].position.x,
+               entity_arr[entity_index].position.y,
+               entity_arr[entity_index].position.z);
+        printf("    Radius: %2.2f\n", entity_arr[entity_index].radius);
         printf("    Material.color: (%d, %d, %d)\n:",
-               sphere_arr[sphere_index].material.color.channel.R,
-               sphere_arr[sphere_index].material.color.channel.G,
-               sphere_arr[sphere_index].material.color.channel.B);
+               entity_arr[entity_index].material.color.channel.R,
+               entity_arr[entity_index].material.color.channel.G,
+               entity_arr[entity_index].material.color.channel.B);
         fflush(stdout);
 //
 #endif // __RT_DEBUG__
 //
-#endif // 0
-
     }
 
-    return sphere_arr;
+    return entity_arr;
 }
 
 #endif // __RT_ENTITY_TOOLS_H___

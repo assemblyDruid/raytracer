@@ -16,7 +16,7 @@
 
 
 // Raytracing Settings
-#define NUM_SPHERES 6
+#define NUM_ENTITYS 6
 
 // Image Settings
 #define IMAGE_WIDTH  400
@@ -32,7 +32,7 @@
 // Mode Settings
 #define __RT_AA__            __RT_ON__
 #define __RT_DEBUG__         __RT_OFF__
-#define __RT_AA__reflections __RT_OFF__
+#define __RT_AA__reflections __RT_ON__
 
 // Antialiasing & Reflection Settings
 #define __RT_AA__RPP              25

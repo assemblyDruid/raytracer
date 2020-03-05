@@ -95,8 +95,8 @@ main(int argc, char** argv)
     ray.direction.y = 0.0f;
     ray.direction.z = -1.0f;
 
-    // Init spheres
-    Sphere* sphere_arr = CreateRandomSpheres(NUM_SPHERES);
+    // Init entitys
+    Entity* entity_arr = CreateRandomEntities(NUM_ENTITYS);
 
 #if __RT_AA__
     v3 aa_pixel_color_accumulator  = { 0 };
@@ -129,12 +129,12 @@ main(int argc, char** argv)
                 SetRayDirectionByPixelCoordAA(&ray, pix_x, pix_y);
                 v3Norm(&ray.direction);
 
-                TraceSphereArray(&ray,
+                TraceEntityArray(&ray,
                                  &intersection,
                                  &global_magnitude_threshold,
                                  &returned_pixel_color,
-                                 sphere_arr,
-                                 NUM_SPHERES);
+                                 entity_arr,
+                                 NUM_ENTITYS);
 
                 if (intersection.does_intersect)
                 {
@@ -166,12 +166,12 @@ main(int argc, char** argv)
             SetRayDirectionByPixelCoord(&ray, pix_x, pix_y);
             v3Norm(&ray.direction);
 
-            TraceSphereArray(&ray,
+            TraceEntityArray(&ray,
                              &intersection,
                              &global_magnitude_threshold,
                              &returned_pixel_color,
-                             sphere_arr,
-                             NUM_SPHERES);
+                             entity_arr,
+                             NUM_ENTITYS);
 
             if (intersection.does_intersect)
             {
