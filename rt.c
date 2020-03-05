@@ -3,6 +3,78 @@
 #include <stdio.h>
 #include <rt.h>
 
+
+
+__RT_internal__ __RT_call__ void
+Log()
+{
+    printf("\nRaytracing...\n");
+    if (__RT_DEBUG__)
+    {
+        printf("RT debug tools:       ON\n");
+        printf("Math tests:           ON\n");
+        TestMaths();
+    }
+    else
+    {
+        printf("RT debug tools:       OFF\n");
+        printf("Math tests:           OFF\n");
+    }
+
+    if (__RT_AA__)
+    {
+        printf("Antialiasing:         ON\n");
+        printf("---RPP:               %d\n",
+               __RT_AA__RPP);
+        printf("---noise:             %2.3f\n",
+               __RT_AA__noise);
+
+    }
+    else
+    {
+        printf("Antialiasing:         OFF\n");
+    }
+
+    if (__RT_AA__reflections)
+    {
+        printf("Reflections:          ON\n");
+#if __RT_AA__reflections
+        printf("---noise:             %2.3f\n",
+               __RT_AA__reflection_noise);
+#endif // __RT_AA__reflections
+    }
+    else
+    {
+        printf("Reflections:          OFF\n");
+    }
+
+    if (__LSB__)
+    {
+        printf("Compiled for:         LSB\n");
+    }
+    else
+    {
+        printf("Compiled for:         MSB\n");
+    }
+
+    if (RENDER_COORD_DIR)
+    {
+        printf("Coord Directions:     Rendering\n");
+    }
+    else
+    {
+        printf("Coord Directions:     Not Rendering\n");
+    }
+
+    printf("Tolerance:            %f\n", (r32)TOLERANCE);
+    printf("Maximum ray mag:      %f\n", (r32)MAX_RAY_MAG);
+    printf("Minimum ray mag:      %f\n", (r32)MIN_RAY_MAG);
+    printf("Image height:         %d\n", IMAGE_HEIGHT);
+    printf("Image width:          %d\n", IMAGE_WIDTH);
+    fflush(stdout);
+}
+
+
 int
 main(int argc, char** argv)
 {
